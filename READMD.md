@@ -1,0 +1,1 @@
+# GPT_CapstoneDesign 2026년도 1학기 GPT를활용한소프트웨어개발캡스톤디자인 4조 github 입니다.
