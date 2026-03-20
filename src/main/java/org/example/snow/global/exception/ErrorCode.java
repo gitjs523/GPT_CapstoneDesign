@@ -1,0 +1,28 @@
+package org.example.snow.global.exception;
+
+import lombok.Getter;
+import org.springframework.http.HttpStatus;
+
+@Getter
+public enum ErrorCode {
+    FILE_REQUIRED(HttpStatus.BAD_REQUEST, "DOC_001", "업로드할 파일이 필요합니다."),
+    UNSUPPORTED_DOCUMENT_TYPE(HttpStatus.BAD_REQUEST, "DOC_002", "지원하지 않는 파일 형식입니다. PDF, PPT, PPTX만 업로드할 수 있습니다."),
+    PAGE_CHUNK_STRATEGY_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "DOC_003", "PAGE 청킹은 PDF 문서에서만 사용할 수 있습니다."),
+    SLIDE_CHUNK_STRATEGY_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "DOC_004", "SLIDE 청킹은 PPT/PPTX 문서에서만 사용할 수 있습니다."),
+    PDF_TEXT_EXTRACTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "DOC_005", "PDF 텍스트 추출에 실패했습니다."),
+    POWERPOINT_TEXT_EXTRACTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "DOC_006", "PowerPoint 텍스트 추출에 실패했습니다."),
+    DOCUMENT_PREPROCESSING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "DOC_007", "문서 전처리에 실패했습니다."),
+    UPLOADED_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "DOC_008", "업로드 파일을 읽는 중 오류가 발생했습니다."),
+    INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_001", "잘못된 요청입니다."),
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_002", "서버 내부 오류가 발생했습니다.");
+
+    private final HttpStatus status;
+    private final String code;
+    private final String message;
+
+    ErrorCode(HttpStatus status, String code, String message) {
+        this.status = status;
+        this.code = code;
+        this.message = message;
+    }
+}
