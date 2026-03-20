@@ -9,3 +9,7 @@ out/
 *.iml
 *.iws
 *.ipr
+
+# codex 관련
+AGENTS.md
+WORKLOG.md
