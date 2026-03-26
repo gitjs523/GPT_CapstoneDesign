@@ -11,7 +11,7 @@ import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.example.snow.document.application.UploadedDocument;
 import org.example.snow.document.application.port.TextExtractor;
 import org.example.snow.document.domain.ExtractedDocument;
-import org.example.snow.document.domain.ExtractedSection;
+import org.example.snow.document.domain.SourceUnit;
 import org.example.snow.document.domain.SourceUnitType;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
@@ -59,13 +59,13 @@ public class PowerPointTextExtractor implements TextExtractor {
             UploadedDocument file
     ) throws IOException {
         try (slideShow; SlideShowExtractor<S, P> extractor = new SlideShowExtractor<>(slideShow)) {
-            List<ExtractedSection> sections = new ArrayList<>();
+            List<SourceUnit> sourceUnits = new ArrayList<>();
             int slideNumber = 1;
 
             for (Slide<S, P> slide : slideShow.getSlides()) {
                 String heading = StringUtils.hasText(slide.getTitle()) ? slide.getTitle() : "Slide " + slideNumber;
                 String text = extractor.getText(slide);
-                sections.add(new ExtractedSection(slideNumber, heading, text));
+                sourceUnits.add(new SourceUnit(slideNumber, heading, text));
                 slideNumber++;
             }
 
@@ -73,7 +73,7 @@ public class PowerPointTextExtractor implements TextExtractor {
                     resolveFilename(file),
                     resolveContentType(file),
                     SourceUnitType.SLIDE,
-                    sections
+                    sourceUnits
             );
         }
     }

@@ -3,9 +3,10 @@ package org.example.snow.document.application;
 import lombok.RequiredArgsConstructor;
 import org.example.snow.document.application.port.TextExtractor;
 import org.example.snow.document.domain.ChunkStrategy;
-import org.example.snow.document.domain.DocumentChunk;
+import org.example.snow.document.domain.Chunk;
 import org.example.snow.document.domain.ExtractedDocument;
-import org.example.snow.document.domain.ExtractedSection;
+import org.example.snow.document.domain.Section;
+import org.example.snow.document.domain.SourceUnit;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
@@ -29,14 +30,16 @@ public class DocumentIngestionService {
                 preprocessedDocument.sourceType(),
                 command.chunkStrategy()
         );
-        List<DocumentChunk> chunks = chunkingService.chunk(preprocessedDocument, appliedStrategy);
-        String preprocessedText = joinSections(preprocessedDocument.sections());
+        List<Section> sections = chunkingService.buildSections(preprocessedDocument);
+        List<Chunk> chunks = chunkingService.chunk(preprocessedDocument, sections, appliedStrategy);
+        String preprocessedText = joinSourceUnits(preprocessedDocument.sourceUnits());
 
         return new DocumentProcessingResult(
                 preprocessedDocument.originalFilename(),
                 preprocessedDocument.contentType(),
                 appliedStrategy,
-                preprocessedDocument.sections().size(),
+                preprocessedDocument.sourceUnits().size(),
+                sections.size(),
                 chunks.size(),
                 preprocessedText.length(),
                 preprocessedText,
@@ -60,22 +63,22 @@ public class DocumentIngestionService {
 
     private ExtractedDocument preprocess(ExtractedDocument document) {
         try {
-            List<ExtractedSection> sections = document.sections().stream()
-                    .map(section -> new ExtractedSection(
-                            section.index(),
-                            section.heading(),
-                            textPreprocessor.normalize(section.text())
+            List<SourceUnit> sourceUnits = document.sourceUnits().stream()
+                    .map(sourceUnit -> new SourceUnit(
+                            sourceUnit.index(),
+                            sourceUnit.heading(),
+                            textPreprocessor.normalize(sourceUnit.text())
                     ))
                     .toList();
-            return document.withSections(sections);
+            return document.withSourceUnits(sourceUnits);
         } catch (RuntimeException exception) {
             throw new BusinessException(ErrorCode.DOCUMENT_PREPROCESSING_FAILED, exception);
         }
     }
 
-    private String joinSections(List<ExtractedSection> sections) {
-        return sections.stream()
-                .map(ExtractedSection::text)
+    private String joinSourceUnits(List<SourceUnit> sourceUnits) {
+        return sourceUnits.stream()
+                .map(SourceUnit::text)
                 .filter(text -> !text.isBlank())
                 .reduce((left, right) -> left + "\n\n" + right)
                 .orElse("");

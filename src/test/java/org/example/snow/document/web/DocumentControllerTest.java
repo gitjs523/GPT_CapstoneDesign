@@ -42,9 +42,14 @@ class DocumentControllerTest {
                         .param("chunkStrategy", "AUTO"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.originalFilename").value("lecture.pdf"))
-                .andExpect(jsonPath("$.appliedChunkStrategy").value("PAGE"))
+                .andExpect(jsonPath("$.appliedChunkStrategy").value("SECTION"))
+                .andExpect(jsonPath("$.sourceUnitCount").value(1))
+                .andExpect(jsonPath("$.sectionCount").value(1))
                 .andExpect(jsonPath("$.chunkCount").value(1))
-                .andExpect(jsonPath("$.chunks[0].heading").value("Page 1"))
+                .andExpect(jsonPath("$.chunks[0].sourceType").value("PAGE"))
+                .andExpect(jsonPath("$.chunks[0].sourceStartIndex").value(1))
+                .andExpect(jsonPath("$.chunks[0].sourceEndIndex").value(1))
+                .andExpect(jsonPath("$.chunks[0].sourceIndices[0]").value(1))
                 .andExpect(jsonPath("$.chunks[0].text", containsString("RAG overview")));
     }
 

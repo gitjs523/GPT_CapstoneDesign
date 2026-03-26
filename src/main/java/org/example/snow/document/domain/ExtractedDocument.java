@@ -6,10 +6,10 @@ public record ExtractedDocument(
         String originalFilename,
         String contentType,
         SourceUnitType sourceType,
-        List<ExtractedSection> sections
+        List<SourceUnit> sourceUnits
 ) {
 
-    public ExtractedDocument withSections(List<ExtractedSection> sections) {
-        return new ExtractedDocument(originalFilename, contentType, sourceType, sections);
+    public ExtractedDocument withSourceUnits(List<SourceUnit> sourceUnits) {
+        return new ExtractedDocument(originalFilename, contentType, sourceType, sourceUnits);
     }
 }

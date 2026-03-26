@@ -9,23 +9,25 @@ public record DocumentProcessResponse(
         String originalFilename,
         String contentType,
         ChunkStrategy appliedChunkStrategy,
-        int extractedSectionCount,
+        int sourceUnitCount,
+        int sectionCount,
         int chunkCount,
         int totalCharacters,
         String preprocessedText,
-        List<DocumentChunkResponse> chunks
+        List<ChunkResponse> chunks
 ) {
 
     public static DocumentProcessResponse from(DocumentProcessingResult result) {
-        List<DocumentChunkResponse> chunkResponses = result.chunks().stream()
-                .map(DocumentChunkResponse::from)
+        List<ChunkResponse> chunkResponses = result.chunks().stream()
+                .map(ChunkResponse::from)
                 .toList();
 
         return new DocumentProcessResponse(
                 result.originalFilename(),
                 result.contentType(),
                 result.appliedChunkStrategy(),
-                result.extractedSectionCount(),
+                result.sourceUnitCount(),
+                result.sectionCount(),
                 result.chunkCount(),
                 result.totalCharacters(),
                 result.preprocessedText(),
