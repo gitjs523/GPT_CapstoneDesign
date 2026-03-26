@@ -16,17 +16,14 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 @Component
 public class PdfTextExtractor implements TextExtractor {
 
     @Override
     public boolean supports(UploadedDocument file) {
-        String filename = file.originalFilename();
-        String contentType = file.contentType();
-
-        return hasExtension(filename, "pdf") || MediaType.APPLICATION_PDF_VALUE.equalsIgnoreCase(contentType);
+        return ExtractorSupport.hasExtension(file, "pdf")
+                || ExtractorSupport.hasContentType(file, MediaType.APPLICATION_PDF_VALUE);
     }
 
     @Override
@@ -38,30 +35,17 @@ public class PdfTextExtractor implements TextExtractor {
             for (int pageNumber = 1; pageNumber <= document.getNumberOfPages(); pageNumber++) {
                 stripper.setStartPage(pageNumber);
                 stripper.setEndPage(pageNumber);
-                String text = stripper.getText(document);
-                sourceUnits.add(new SourceUnit(pageNumber, "Page " + pageNumber, text));
+                sourceUnits.add(ExtractorSupport.pageSourceUnit(pageNumber, stripper.getText(document)));
             }
 
             return new ExtractedDocument(
-                    resolveFilename(file),
-                    resolveContentType(file),
+                    ExtractorSupport.resolveFilename(file),
+                    ExtractorSupport.resolveContentType(file),
                     SourceUnitType.PAGE,
                     sourceUnits
             );
         } catch (IOException exception) {
             throw new BusinessException(ErrorCode.PDF_TEXT_EXTRACTION_FAILED, exception);
         }
-    }
-
-    private boolean hasExtension(String filename, String extension) {
-        return filename != null && filename.toLowerCase(Locale.ROOT).endsWith("." + extension);
-    }
-
-    private String resolveFilename(UploadedDocument file) {
-        return file.originalFilename() == null ? "uploaded-file" : file.originalFilename();
-    }
-
-    private String resolveContentType(UploadedDocument file) {
-        return file.contentType() == null ? MediaType.APPLICATION_OCTET_STREAM_VALUE : file.contentType();
     }
 }

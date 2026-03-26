@@ -16,42 +16,44 @@ import org.example.snow.document.domain.SourceUnitType;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 @Component
 public class PowerPointTextExtractor implements TextExtractor {
 
-    private static final String PPT_CONTENT_TYPE = "application/vnd.ms-powerpoint";
-    private static final String PPTX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    static final String PPT_CONTENT_TYPE = "application/vnd.ms-powerpoint";
+    static final String PPTX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
     @Override
     public boolean supports(UploadedDocument file) {
-        String filename = file.originalFilename();
-        String contentType = file.contentType();
-
-        return hasExtension(filename, "ppt")
-                || hasExtension(filename, "pptx")
-                || PPT_CONTENT_TYPE.equalsIgnoreCase(contentType)
-                || PPTX_CONTENT_TYPE.equalsIgnoreCase(contentType);
+        return isPpt(file) || isPptx(file);
     }
 
     @Override
     public ExtractedDocument extract(UploadedDocument file) {
         try (InputStream inputStream = new ByteArrayInputStream(file.content())) {
-            if (hasExtension(file.originalFilename(), "pptx")) {
+            if (isPptx(file)) {
                 return extractSlideShow(new XMLSlideShow(inputStream), file);
             }
             return extractSlideShow(new HSLFSlideShow(inputStream), file);
         } catch (IOException exception) {
             throw new BusinessException(ErrorCode.POWERPOINT_TEXT_EXTRACTION_FAILED, exception);
         }
+    }
+
+    private boolean isPpt(UploadedDocument file) {
+        return ExtractorSupport.hasExtension(file, "ppt")
+                || ExtractorSupport.hasContentType(file, PPT_CONTENT_TYPE);
+    }
+
+    private boolean isPptx(UploadedDocument file) {
+        return ExtractorSupport.hasExtension(file, "pptx")
+                || ExtractorSupport.hasContentType(file, PPTX_CONTENT_TYPE);
     }
 
     private <S extends Shape<S, P>, P extends TextParagraph<S, P, ? extends TextRun>> ExtractedDocument extractSlideShow(
@@ -63,30 +65,20 @@ public class PowerPointTextExtractor implements TextExtractor {
             int slideNumber = 1;
 
             for (Slide<S, P> slide : slideShow.getSlides()) {
-                String heading = StringUtils.hasText(slide.getTitle()) ? slide.getTitle() : "Slide " + slideNumber;
-                String text = extractor.getText(slide);
-                sourceUnits.add(new SourceUnit(slideNumber, heading, text));
+                sourceUnits.add(ExtractorSupport.slideSourceUnit(
+                        slideNumber,
+                        slide.getTitle(),
+                        extractor.getText(slide)
+                ));
                 slideNumber++;
             }
 
             return new ExtractedDocument(
-                    resolveFilename(file),
-                    resolveContentType(file),
+                    ExtractorSupport.resolveFilename(file),
+                    ExtractorSupport.resolveContentType(file),
                     SourceUnitType.SLIDE,
                     sourceUnits
             );
         }
-    }
-
-    private boolean hasExtension(String filename, String extension) {
-        return filename != null && filename.toLowerCase(Locale.ROOT).endsWith("." + extension);
-    }
-
-    private String resolveFilename(UploadedDocument file) {
-        return file.originalFilename() == null ? "uploaded-file" : file.originalFilename();
-    }
-
-    private String resolveContentType(UploadedDocument file) {
-        return file.contentType() == null ? "application/octet-stream" : file.contentType();
     }
 }
