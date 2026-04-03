@@ -84,60 +84,114 @@ import os
 from langchain_community.document_loaders import UnstructuredFileLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# 1. 파일 경로 설정 (본인의 PDF나 PPTX 파일 경로로 수정하세요)
+# 1. 파일 경로 설정
 file_path = "sample.pdf" 
 
 if not os.path.exists(file_path):
     print(f"파일을 찾을 수 없습니다: {file_path}")
 else:
-    # 2. Unstructured 로더 설정 (요소별 추출 모드)
-    # mode="elements"는 제목, 본문, 표 등을 구분해서 가져옵니다.
+    # 2. Unstructured 로더 설정
     loader = UnstructuredFileLoader(
         file_path,
         mode="elements", 
-        strategy="fast"  # 빠른 분석을 위해 fast 사용
+        strategy="fast"
     )
     raw_documents = loader.load()
 
     # 3. 섹션(Section) 구조화 로직
     structured_docs = []
-    current_section_title = "Header/Intro" # 초기 섹션명
+    current_section_title = "Header/Intro" 
 
     for doc in raw_documents:
         category = doc.metadata.get("category")
         page_or_slide = doc.metadata.get("page_number") or doc.metadata.get("slide_number")
 
-        # 요소가 'Title'이면 새로운 섹션 시작으로 간주
         if category == "Title":
             current_section_title = doc.page_content
         
-        # 실제 본문 내용(텍스트, 리스트 등)만 추출하여 섹션 정보 주입
         if category in ["NarrativeText", "ListItem", "Table"]:
             doc.metadata["section"] = current_section_title
             doc.metadata["source_unit"] = f"Unit_{page_or_slide}"
             structured_docs.append(doc)
 
-    # 4. 최종 청킹 (Section 정보를 포함한 상태로 분할)
+    # 4. 최종 청킹
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=600,
         chunk_overlap=100
     )
     final_chunks = text_splitter.split_documents(structured_docs)
 
-    # 5. 결과 확인 (첫 번째 청크 출력)
-    if final_chunks:
-        print(f"총 생성된 청크 수: {len(final_chunks)}")
-        print("-" * 30)
-        print(f"[메타데이터 확인]: {final_chunks[0].metadata}")
-        print(f"[내용 일부]: {final_chunks[0].page_content[:100]}...")
+    # --- 여기서부터 출력부 (else 문 안쪽으로 들여쓰기 됨) ---
+    print(f"\n✅ 총 생성된 청크 수: {len(final_chunks)}")
+    print("=" * 60)
+
+    for i, chunk in enumerate(final_chunks[:10]): 
+        print(f" {i+1}번 청크 정보")
+        
+        section = chunk.metadata.get('section', 'N/A')
+        unit = chunk.metadata.get('source_unit', 'N/A')
+        page = chunk.metadata.get('page_number', 'N/A')
+        
+        print(f"    📍 위치: {unit} (Page {page})")
+        print(f"    📂 섹션: {section}")
+        print(f"    📝 내용: {chunk.page_content[:150]}...") 
+        print("-" * 60)
 ```
 - 코드 입력 후, `python pdf_chunking.py`를 터미널에 입력
 - 결과
 ```
-총 생성된 청크 수: 378
-------------------------------
-[메타데이터 확인]: {'source': 'sample.pdf', 'coordinates': {'points': ((86.055, 130.42501999999996), (86.055, 150.46501999999998), (195.60888, 150.46501999999998), (195.60888, 130.42501999999996)), 'system': 'PixelSpace', 'layout_width': 960.0, 'layout_height': 540.0}, 'filename': 'sample.pdf', 'last_modified': '2026-03-11T09:12:31', 'page_number': 2, 'languages': ['kor'], 'filetype': 'application/pdf', 'parent_id': '867a792056c339ca5d7b128ec5433eaa', 'category': 'ListItem', 'element_id': '81c30a13fecf25d60236fa4cd8ba7a2b', 'section': '\uf0fc 핵심 키워드', 'source_unit': 'Unit_2'}
-[내용 일부]: 머신 러닝...
+✅ 총 생성된 청크 수: 378
+============================================================
+ 1번 청크 정보
+    📍 위치: Unit_2 (Page 2)
+    📂 섹션:  핵심 키워드
+    📝 내용: 머신 러닝...
+------------------------------------------------------------
+ 2번 청크 정보
+    📍 위치: Unit_2 (Page 2)
+    📂 섹션:  핵심 키워드
+    📝 내용: 지도학습...
+------------------------------------------------------------
+ 3번 청크 정보
+    📍 위치: Unit_2 (Page 2)
+    📂 섹션:  핵심 키워드
+    📝 내용: 비지도학습...
+------------------------------------------------------------
+ 4번 청크 정보
+    📍 위치: Unit_2 (Page 2)
+    📂 섹션:  핵심 키워드
+    📝 내용: 강화학습...
+------------------------------------------------------------
+ 5번 청크 정보
+    📍 위치: Unit_2 (Page 2)
+    📂 섹션:  핵심 키워드
+    📝 내용: 딥 러닝...
+------------------------------------------------------------
+ 6번 청크 정보
+    📍 위치: Unit_2 (Page 2)
+    📂 섹션:  핵심 키워드
+    📝 내용: 과적합...
+------------------------------------------------------------
+ 7번 청크 정보
+    📍 위치: Unit_2 (Page 2)
+    📂 섹션:  핵심 키워드
+    📝 내용: 윤리적 과제...
+------------------------------------------------------------
+ 8번 청크 정보
+    📍 위치: Unit_3 (Page 3)
+    📂 섹션:  머신러닝 기초
+    📝 내용: 머신러닝기계학습, ML; Machine learning...
+------------------------------------------------------------
+ 9번 청크 정보
+    📍 위치: Unit_3 (Page 3)
+    📂 섹션:  머신러닝 기초
+    📝 내용: 데이터를 기반으로 패턴 학습 → 예측이나 분류 작업 수행... 
+------------------------------------------------------------
+ 10번 청크 정보
+    📍 위치: Unit_3 (Page 3)
+    📂 섹션:  머신러닝 기초
+    📝 내용: 학습 방식에 따른 구분...
+------------------------------------------------------------
 ```
 ## 7. 현재 구조의 한계
 현재 구현이 이전보다 나아졌지만, 아직 최종 형태는 아니다.
