@@ -4,10 +4,26 @@ spring:
     username: sa
     password:
     driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: none
+      ddl-auto: create-drop
   sql:
     init:
       mode: never
+
+auth:
+  jwt:
+    issuer: snow-test
+    access-token-secret: test-access-token-secret-which-is-long-enough-for-hmac
+    access-token-expiration-seconds: 900
+  refresh-token:
+    expiration-seconds: 1209600
+    cookie:
+      name: snow_refresh
+      secure: false
+      same-site: Lax
+      path: /api/auth
+      domain:

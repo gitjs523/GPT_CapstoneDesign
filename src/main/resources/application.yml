@@ -8,13 +8,29 @@ spring:
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: none
+      ddl-auto: validate
   sql:
     init:
       mode: never
+
+auth:
+  jwt:
+    issuer: ${AUTH_JWT_ISSUER:snow}
+    access-token-secret: ${AUTH_ACCESS_TOKEN_SECRET}
+    access-token-expiration-seconds: ${AUTH_ACCESS_TOKEN_EXPIRATION_SECONDS:900}
+  refresh-token:
+    expiration-seconds: ${AUTH_REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
+    cookie:
+      name: ${AUTH_REFRESH_COOKIE_NAME:snow_refresh}
+      secure: ${AUTH_REFRESH_COOKIE_SECURE:false}
+      same-site: ${AUTH_REFRESH_COOKIE_SAME_SITE:Lax}
+      path: ${AUTH_REFRESH_COOKIE_PATH:/api/auth}
+      domain: ${AUTH_REFRESH_COOKIE_DOMAIN:}
 
 server:
   port: ${SERVER_PORT:8080}

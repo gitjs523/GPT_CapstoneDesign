@@ -13,6 +13,13 @@ public enum ErrorCode {
     POWERPOINT_TEXT_EXTRACTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "DOC_006", "PowerPoint 텍스트 추출에 실패했습니다."),
     DOCUMENT_PREPROCESSING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "DOC_007", "문서 전처리에 실패했습니다."),
     UPLOADED_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "DOC_008", "업로드 파일을 읽는 중 오류가 발생했습니다."),
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "AUTH_001", "이미 사용 중인 이메일입니다."),
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_002", "이메일 또는 비밀번호가 올바르지 않습니다."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_003", "인증이 필요합니다."),
+    FORBIDDEN(HttpStatus.FORBIDDEN, "AUTH_004", "접근 권한이 없습니다."),
+    REFRESH_TOKEN_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH_005", "리프레시 토큰이 필요합니다."),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_006", "유효하지 않은 리프레시 토큰입니다."),
+    EXPIRED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_007", "만료된 리프레시 토큰입니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_001", "잘못된 요청입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_002", "서버 내부 오류가 발생했습니다.");
 

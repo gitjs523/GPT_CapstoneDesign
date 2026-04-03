@@ -1,7 +1,9 @@
 package org.example.snow.global.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.validation.BindException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -20,6 +22,28 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = ErrorCode.INVALID_REQUEST;
         return ResponseEntity.status(errorCode.getStatus())
                 .body(ErrorResponse.of(errorCode, exception.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException exception, HttpServletRequest request) {
+        ErrorCode errorCode = ErrorCode.INVALID_REQUEST;
+        String message = exception.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(fieldError -> fieldError.getDefaultMessage())
+                .orElse(errorCode.getMessage());
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(ErrorResponse.of(errorCode, message, request.getRequestURI()));
+    }
+
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ErrorResponse> handleBindException(BindException exception, HttpServletRequest request) {
+        ErrorCode errorCode = ErrorCode.INVALID_REQUEST;
+        String message = exception.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(fieldError -> fieldError.getDefaultMessage())
+                .orElse(errorCode.getMessage());
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(ErrorResponse.of(errorCode, message, request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)
