@@ -29,21 +29,24 @@
 즉, Chunk는 `검색을 위한 최소 의미 단위`이면서 동시에 `원문 추적이 가능한 데이터 단위`여야 한다.
 
 ## 4. 현재 구현 방식
-현재 구현은 더 이상 단순한 `페이지/슬라이드 = 최종 Chunk` 구조가 아니다.
-현재 파이프라인은 다음 순서로 동작한다.
+1. SourceUnit 추출 (Load Phase)
+PDF: PyMuPDFLoader나 UnstructuredPDFLoader 등을 사용해 Page 단위로 Document 객체를 생성한다.
 
-1. 업로드된 문서에서 물리적 단위 텍스트를 추출한다.
-   - PDF는 `PAGE` 기반 `SourceUnit`으로 추출한다.
-   - PPT/PPTX는 `SLIDE` 기반 `SourceUnit`으로 추출한다.
-2. 추출된 텍스트를 전처리한다.
-3. `SourceUnit`들을 바탕으로 제목, 번호 체계, 슬라이드 제목, 짧은 구조적 헤딩 패턴 등을 사용해 `Section`을 만든다.
-4. 마지막으로 `Section` 또는 `SourceUnit`을 기반으로 최종 `Chunk`를 생성한다.
+PPT/PPTX: UnstructuredPowerPointLoader 등을 사용해 Slide 단위로 텍스트와 메타데이터를 분리한다.
 
-즉, 현재 구현의 기본 모델은 다음과 같다.
+2. 전처리 및 섹션 구성 (Transform Phase)
+LangChain의 MarkdownHeaderTextSplitter나 HTMLHeaderTextSplitter와 유사한 논리를 적용하는 단계
 
-- `SourceUnit`: 물리적 원문 단위
-- `Section`: 의미 구조를 반영한 상위 단위
-- `Chunk`: 최종 출력 단위
+구조 파악: 텍스트에서 #, ## 또는 1., 가. 같은 패턴을 감지한다.
+
+Context Enrichment: 단순히 텍스트만 가져오는 게 아니라, 해당 텍스트가 속한 **슬라이드 제목(Slide Title)**이나 문서 제목을 메타데이터(Metadata) 영역에 합친다.
+
+3. 최종 청킹 (Split Phase)
+이제 위에서 정의된 Section을 바탕으로 모델의 컨텍스트 윈도우(Context Window)에 최적화된 크기로 자른다.
+
+RecursiveCharacterTextSplitter: 섹션 내에서 의미가 끊기지 않도록 \n\n, \n,   순으로 재귀적으로 분할한다.
+
+Parent-Child Retrieval: 이때 LangChain의 ParentDocumentRetriever를 사용하면, 검색은 작은 **Chunk(Child)**로 하고, 모델에게 전달할 때는 그 청크가 포함된 Section(Parent) 전체를 전달하여 문맥 이해도를 극대화할 수 있다. /26.04.03
 
 ## 5. 현재 지원하는 Chunk 전략
 공개 API에는 아직 `chunkStrategy`가 남아 있고, 현재는 실험용 제어값으로 사용한다.
