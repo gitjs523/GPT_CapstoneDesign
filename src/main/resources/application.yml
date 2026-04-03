@@ -3,26 +3,10 @@ spring:
     name: Snow
   config:
     import: optional:file:.env[.properties]
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
-      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
-      - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
-
-server:
-  port: ${SERVER_PORT:8080}
-
----
-spring:
-  config:
-    activate:
-      on-profile: postgres
-  autoconfigure:
-    exclude: []
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:snow}
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD:postgres}
+    username: ${POSTGRES_USER:snow}
+    password: ${POSTGRES_PASSWORD:snow-dev-password}
     driver-class-name: org.postgresql.Driver
   jpa:
     open-in-view: false
@@ -31,3 +15,6 @@ spring:
   sql:
     init:
       mode: never
+
+server:
+  port: ${SERVER_PORT:8080}
