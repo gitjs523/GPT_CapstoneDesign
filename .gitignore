@@ -10,9 +10,10 @@ out/
 *.iws
 *.ipr
 
-# codex 관련
+# AI Agent 관련
 AGENTS.md
 .codex/
+CLAUDE.md
 
 # local env
 .env
