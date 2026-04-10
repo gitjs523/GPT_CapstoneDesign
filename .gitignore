@@ -12,5 +12,7 @@ out/
 
 # codex 관련
 AGENTS.md
-WORKLOG.md
 .codex/
+
+# local env
+.env
