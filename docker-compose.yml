@@ -41,6 +41,11 @@ services:
       AUTH_REFRESH_COOKIE_SAME_SITE: ${AUTH_REFRESH_COOKIE_SAME_SITE}
       AUTH_REFRESH_COOKIE_PATH: ${AUTH_REFRESH_COOKIE_PATH}
       AUTH_REFRESH_COOKIE_DOMAIN: ${AUTH_REFRESH_COOKIE_DOMAIN}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3:4b-q4_K_M}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-qwen3-embedding:0.6b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${SERVER_PORT:-8080}:8080"
 
