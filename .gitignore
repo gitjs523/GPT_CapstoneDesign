@@ -17,7 +17,7 @@ CLAUDE.md
 .claude/
 
 # 주간 작업 내용
-./docs/weekly
+docs/weekly
 
 # local env
 .env
