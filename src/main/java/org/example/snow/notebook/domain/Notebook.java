@@ -54,6 +54,10 @@ public class Notebook {
         return new Notebook(user, DEFAULT_TITLE);
     }
 
+    public static Notebook create(UserAccount user, String title) {
+        return new Notebook(user, title);
+    }
+
     @PrePersist
     void prePersist() {
         LocalDateTime now = LocalDateTime.now();
@@ -63,6 +67,10 @@ public class Notebook {
         if (updatedAt == null) {
             updatedAt = now;
         }
+    }
+
+    public void rename(String title) {
+        this.title = title;
     }
 
     @PreUpdate
