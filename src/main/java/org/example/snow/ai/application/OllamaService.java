@@ -1,17 +1,18 @@
 package org.example.snow.ai.application;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class OllamaService {
@@ -60,6 +61,25 @@ public class OllamaService {
                 .call()
                 .content();
     }
+
+    private static final String SUMMARY_SYSTEM_PROMPT = """
+        너는 학습 지원 AI다.
+        입력된 문서를 한국어로 요약해라.
+        핵심 개념과 주요 내용을 중심으로 3~5문장으로 간결하게 작성해라.
+        불필요한 마크다운 기호는 사용하지 마라.
+        """;
+
+    public String generateSummary(String content) {
+    if (!StringUtils.hasText(content)) {
+        throw new IllegalArgumentException("문서 내용은 필수입니다.");
+    }
+
+    return chatClient.prompt()
+            .system(SUMMARY_SYSTEM_PROMPT)
+            .user(content.trim())
+            .call()
+            .content();
+}
 
     public GeneratedAnswer generateGroundedAnswer(AnswerGenerationCommand command) {
         try {
