@@ -69,6 +69,14 @@ public class OllamaService {
         불필요한 마크다운 기호는 사용하지 마라.
         """;
 
+    private static final String SECTION_SUMMARY_SYSTEM_PROMPT = """
+        너는 학습 지원 AI다.
+        사용자가 요청한 특정 주제 또는 단원과 관련된 내용만 한국어로 요약해라.
+        입력 문서 전체를 다 요약하지 말고, 요청한 주제와 직접 관련된 부분만 3~5문장으로 간결하게 정리해라.
+        관련 내용이 충분하지 않으면 제공된 내용 기준으로만 최대한 간단히 요약해라.
+        불필요한 마크다운 기호는 사용하지 마라.
+        """;
+
     public String generateSummary(String content) {
     if (!StringUtils.hasText(content)) {
         throw new IllegalArgumentException("문서 내용은 필수입니다.");
@@ -79,7 +87,32 @@ public class OllamaService {
             .user(content.trim())
             .call()
             .content();
-}
+    }
+
+    public String generateSectionSummary(String topic, String content) {
+    if (!StringUtils.hasText(topic)) {
+        throw new IllegalArgumentException("주제는 필수입니다.");
+    }
+    if (!StringUtils.hasText(content)) {
+        throw new IllegalArgumentException("문서 내용은 필수입니다.");
+    }
+
+    String prompt = """
+            요청 주제:
+            %s
+
+            문서 내용:
+            %s
+
+            위 문서 내용 중 요청 주제와 관련된 부분만 요약해라.
+            """.formatted(topic.trim(), content.trim());
+
+    return chatClient.prompt()
+            .system(SECTION_SUMMARY_SYSTEM_PROMPT)
+            .user(prompt)
+            .call()
+            .content();
+    }
 
     public GeneratedAnswer generateGroundedAnswer(AnswerGenerationCommand command) {
         try {

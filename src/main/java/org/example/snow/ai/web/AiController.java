@@ -2,8 +2,10 @@ package org.example.snow.ai.web;
 
 import org.example.snow.ai.application.OllamaService;
 import org.example.snow.ai.web.dto.GenerateAnswerRequest;
+import org.example.snow.ai.web.dto.GenerateSectionSummaryRequest;
 import org.example.snow.ai.web.dto.GenerateSummaryRequest;
 import org.example.snow.ai.web.dto.GeneratedAnswerResponse;
+import org.example.snow.ai.web.dto.GeneratedSectionSummaryResponse;
 import org.example.snow.ai.web.dto.GeneratedSummaryResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +42,17 @@ public class AiController {
         return ResponseEntity.ok(
                 GeneratedSummaryResponse.from(
                         ollamaService.generateSummary(request.content())
+                )
+        );
+    }
+
+    @PostMapping("/api/ai/section-summaries")
+    public ResponseEntity<GeneratedSectionSummaryResponse> generateSectionSummary(
+            @Valid @RequestBody GenerateSectionSummaryRequest request
+    ) {
+        return ResponseEntity.ok(
+                GeneratedSectionSummaryResponse.from(
+                        ollamaService.generateSectionSummary(request.topic(), request.content())
                 )
         );
     }
