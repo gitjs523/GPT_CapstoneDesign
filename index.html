@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SNOW workspace for document-based question generation.">
   <title>SNOW Workspace</title>
   <link rel="stylesheet" href="./src/styles/main.css">
 </head>
@@ -11,54 +12,150 @@
     <header class="hero">
       <a class="top-link" href="./login.html">Login</a>
       <div class="hero-copy">
-        <p class="eyebrow">Document Intelligence Workspace</p>
+        <p class="eyebrow">
+          <span class="brand-accent brand-s">S</span>mart
+          <span class="brand-accent brand-n">N</span>ote
+          <span class="brand-accent brand-o">O</span>rganizer for
+          <span class="brand-accent brand-w">W</span>eb
+        </p>
         <h1>SNOW</h1>
+        <p class="hero-description">
+          텍스트 요청을 입력하고 결과를 확인하는 기본 흐름을 먼저 구성한 화면입니다.
+        </p>
       </div>
       <div class="hero-status">
         <span class="status-dot"></span>
-        <span>Model slots ready</span>
+        <span id="hero-status-text">2 documents analyzed</span>
       </div>
     </header>
 
     <main class="dashboard">
-      <section class="panel output-panel">
+      <aside class="panel history-panel">
         <div class="panel-heading">
-          <p class="panel-kicker">Output</p>
-          <h2>텍스트 출력</h2>
+          <p class="panel-kicker">History</p>
+          <h2>요청 기록</h2>
         </div>
-        <div id="output-window" class="output-window">
-          아직 생성된 결과가 없습니다. 문서를 업로드하고 요청을 입력한 뒤 실행하기를 눌러주세요.
+        <p class="history-caption">이전에 실행했던 요청을 빠르게 다시 확인할 수 있습니다.</p>
+        <div id="history-list" class="history-list">
+          <p class="history-empty">아직 저장된 요청 기록이 없습니다.</p>
+        </div>
+      </aside>
+
+      <section class="panel output-panel">
+        <div class="panel-heading panel-row">
+          <div>
+            <p class="panel-kicker">Output</p>
+            <h2>텍스트 출력</h2>
+          </div>
+          <button type="button" id="copy-button" class="ghost-button">출력 복사</button>
+        </div>
+        <div id="output-window" class="output-window" aria-live="polite">
+          아직 생성된 결과가 없습니다. 아래 입력창에서 요청을 작성한 뒤 실행해보세요.
+        </div>
+        <div id="result-cards" class="result-cards">
+          <article class="result-card">
+            <p class="result-label">미리보기</p>
+            <h3>생성된 문제와 요약 결과가 이 영역에 표시됩니다.</h3>
+            <p>실제 연결 전에는 더미 결과가 나타나고, 이후 정답과 해설 패널을 붙일 수 있습니다.</p>
+          </article>
         </div>
       </section>
 
       <section class="panel input-panel">
-        <div class="panel-heading">
-          <p class="panel-kicker">Prompt</p>
-          <h2>텍스트 입력</h2>
+        <div class="panel-heading panel-row">
+          <div>
+            <p class="panel-kicker">Prompt</p>
+            <h2>텍스트 입력</h2>
+          </div>
+          <div class="upload-status-group">
+            <label class="upload-dropzone compact-upload inline-uploader" for="document-upload">
+              <input id="document-upload" type="file" accept=".pdf,.ppt,.pptx" multiple>
+              <strong>문서 업로드</strong>
+              <span id="selected-file-name">PDF, PPT, PPTX 여러 개 업로드</span>
+            </label>
+            <div id="upload-status" class="upload-status idle" aria-live="polite">
+              <span class="upload-status-dot"></span>
+              <span id="upload-status-text">대기 중</span>
+            </div>
+          </div>
         </div>
-        <label class="textarea-wrap">
-          <span>문제 생성 요청</span>
-          <textarea id="prompt-input" placeholder="예: 핵심 개념 위주로 객관식 10문제와 주관식 3문제를 만들어줘."></textarea>
-        </label>
-        <div class="inline-upload">
-          <label class="upload-dropzone compact-upload" for="document-upload">
-            <input id="document-upload" type="file" accept=".pdf,.ppt,.pptx">
-            <strong>PDF 또는 PPT 업로드</strong>
-            <span id="selected-file-name">아직 업로드된 문서가 없습니다.</span>
+        <div class="field-grid">
+          <label class="textarea-wrap field-span-2">
+            <span>출제 범위 또는 요청</span>
+            <textarea id="prompt-input" placeholder="예: 운영체제 핵심 개념 위주로 객관식 5문항과 서술형 2문항을 생성해줘."></textarea>
+          </label>
+
+          <label class="select-wrap">
+            <span>문제 유형</span>
+            <select id="question-type">
+              <option value="객관식">객관식</option>
+              <option value="단답형">단답형</option>
+              <option value="서술형">서술형</option>
+            </select>
+          </label>
+
+          <label class="select-wrap">
+            <span>난이도</span>
+            <select id="difficulty">
+              <option value="easy">쉬움</option>
+              <option value="medium" selected>보통</option>
+              <option value="hard">어려움</option>
+            </select>
+          </label>
+
+          <label class="select-wrap">
+            <span>문제 수</span>
+            <select id="question-count">
+              <option value="3">3문항</option>
+              <option value="5" selected>5문항</option>
+              <option value="10">10문항</option>
+            </select>
           </label>
         </div>
+
         <div class="controls">
+          <button type="button" id="sample-button" class="ghost-button">샘플 요청 넣기</button>
           <button type="button" id="generate-button" class="primary-button">실행하기</button>
           <button type="button" id="reset-button" class="ghost-button">초기화</button>
         </div>
+
+        <div class="uploaded-files-panel">
+          <div class="uploaded-files-header">
+            <p class="panel-kicker">Uploaded Files</p>
+            <h3>업로드된 문서</h3>
+          </div>
+          <div id="uploaded-files-list" class="uploaded-files-list">
+            <p class="uploaded-file-empty">아직 업로드된 문서가 없습니다.</p>
+          </div>
+        </div>
       </section>
 
-      <!-- Embedding model 연결 위치 -->
-      <!-- Generative model 연결 위치 -->
-      <!-- Retrieved chunks / metadata 연결 위치 -->
+      <section class="panel status-panel">
+        <div class="panel-heading">
+          <p class="panel-kicker">Job Status</p>
+          <h2>생성 작업 상태</h2>
+        </div>
+        <div class="job-timeline">
+          <div class="timeline-step is-active" data-step="queued">
+            <strong>QUEUED</strong>
+            <span>요청 접수</span>
+          </div>
+          <div class="timeline-step" data-step="running">
+            <strong>RUNNING</strong>
+            <span>검색 및 생성</span>
+          </div>
+          <div class="timeline-step" data-step="completed">
+            <strong>COMPLETED</strong>
+            <span>결과 확인 가능</span>
+          </div>
+        </div>
+        <div id="job-status-message" class="output-window status-window" aria-live="polite">
+          분석 완료 문서가 1개 이상 있어야 실행 버튼이 활성화됩니다.
+        </div>
+      </section>
     </main>
   </div>
 
-  <script src="./src/main.js"></script>
+  <script src="./src/main.js" defer></script>
 </body>
 </html>

@@ -8,23 +8,151 @@
 </head>
 <body>
   <div class="auth-shell">
-    <section class="auth-card">
-      <p class="eyebrow">Welcome</p>
+    <section class="auth-card auth-card-centered">
+      <p class="eyebrow">Workspace Access</p>
       <h1 class="auth-title">SNOW</h1>
-      <p class="auth-text">로그인 후 문서를 업로드하고 문제 생성 화면으로 이동합니다.</p>
+      <p class="auth-text auth-text-compact">
+        로그인하거나 새 계정을 만들어 문서 업로드와 문제 생성을 시작하세요.
+      </p>
 
-      <form class="login-form" action="./index.html">
-        <label>
-          <span>이메일</span>
-          <input type="email" placeholder="you@example.com">
-        </label>
-        <label>
-          <span>비밀번호</span>
-          <input type="password" placeholder="비밀번호를 입력하세요">
-        </label>
-        <button type="submit" class="primary-button">로그인</button>
-      </form>
+      <div class="auth-tabs" role="tablist" aria-label="인증 화면 전환">
+        <button
+          type="button"
+          class="auth-tab is-active"
+          id="login-tab"
+          data-auth-target="login-panel"
+          aria-selected="true"
+        >
+          로그인
+        </button>
+        <button
+          type="button"
+          class="auth-tab"
+          id="signup-tab"
+          data-auth-target="signup-panel"
+          aria-selected="false"
+        >
+          회원가입
+        </button>
+      </div>
+
+      <button type="button" class="auth-secondary-link" id="forgot-password-trigger">
+        비밀번호를 잊으셨나요?
+      </button>
+
+      <section class="auth-panel is-active" id="login-panel" role="tabpanel" aria-labelledby="login-tab">
+        <div class="auth-panel-header">
+          <p class="panel-kicker">Login</p>
+          <h2>계정으로 시작하기</h2>
+          <p>기존 계정으로 로그인하고 워크스페이스로 이동합니다.</p>
+        </div>
+
+        <form class="login-form" id="login-form" action="./index.html">
+          <label>
+            <span>이메일</span>
+            <input type="email" id="login-email" placeholder="you@example.com">
+          </label>
+          <label>
+            <span>비밀번호</span>
+            <input type="password" id="login-password" placeholder="비밀번호를 입력하세요">
+          </label>
+
+          <div class="auth-inline">
+            <label class="auth-check">
+              <input type="checkbox">
+              <span>로그인 상태 유지</span>
+            </label>
+            <button type="button" class="auth-link auth-link-button" id="login-forgot-password">
+              비밀번호 찾기
+            </button>
+          </div>
+
+          <div id="login-feedback" class="auth-feedback" aria-live="polite">
+            이메일과 비밀번호를 입력하세요.
+          </div>
+
+          <button type="submit" id="login-submit" class="primary-button auth-submit" disabled>로그인</button>
+        </form>
+      </section>
+
+      <section class="auth-panel" id="signup-panel" role="tabpanel" aria-labelledby="signup-tab" hidden>
+        <div class="auth-panel-header">
+          <p class="panel-kicker">Sign Up</p>
+          <h2>새 계정 만들기</h2>
+          <p>회원가입 후 기본 노트북이 생성되고 바로 문서 업로드를 시작할 수 있습니다.</p>
+        </div>
+
+        <form class="login-form" id="signup-form" action="./index.html">
+          <label>
+            <span>이름</span>
+            <input type="text" id="signup-name" placeholder="홍길동">
+          </label>
+          <label>
+            <span>이메일</span>
+            <input type="email" id="signup-email" placeholder="you@example.com">
+          </label>
+          <label>
+            <span>비밀번호</span>
+            <input type="password" id="signup-password" placeholder="8자 이상 입력하세요">
+          </label>
+          <label>
+            <span>비밀번호 확인</span>
+            <input type="password" id="signup-password-confirm" placeholder="비밀번호를 다시 입력하세요">
+          </label>
+
+          <label class="auth-check auth-check-block">
+            <input type="checkbox" id="signup-agree">
+            <span>이용약관 및 개인정보 처리방침에 동의합니다.</span>
+          </label>
+
+          <div id="signup-feedback" class="auth-feedback" aria-live="polite">
+            비밀번호는 8자 이상이며 특수문자를 포함해야 합니다.
+          </div>
+
+          <div id="signup-result" class="auth-feedback auth-feedback-neutral" aria-live="polite" hidden>
+            회원가입 결과가 여기에 표시됩니다.
+          </div>
+
+          <button type="submit" id="signup-submit" class="primary-button auth-submit" disabled>회원가입</button>
+        </form>
+      </section>
+
+      <section class="auth-panel" id="forgot-panel" role="tabpanel" aria-labelledby="login-tab" hidden>
+        <div class="auth-panel-header">
+          <p class="panel-kicker">Reset Password</p>
+          <h2>비밀번호 재설정</h2>
+          <p>가입한 이메일을 입력하면 비밀번호 재설정 안내를 보내는 흐름으로 연결됩니다.</p>
+        </div>
+
+        <form class="login-form" id="forgot-form" action="./login.html">
+          <label>
+            <span>이메일</span>
+            <input type="email" id="forgot-email" placeholder="you@example.com">
+          </label>
+          <label>
+            <span>새 비밀번호</span>
+            <input type="password" id="forgot-password" placeholder="8자 이상, 특수문자 포함">
+          </label>
+          <label>
+            <span>새 비밀번호 확인</span>
+            <input type="password" id="forgot-password-confirm" placeholder="비밀번호를 다시 입력하세요">
+          </label>
+
+          <div id="forgot-feedback" class="auth-feedback" aria-live="polite">
+            가입한 이메일과 새 비밀번호를 입력하세요.
+          </div>
+
+          <button type="submit" id="forgot-submit" class="primary-button auth-submit" disabled>
+            재설정 링크 보내기
+          </button>
+          <button type="button" id="forgot-back" class="ghost-button auth-submit">
+            로그인으로 돌아가기
+          </button>
+        </form>
+      </section>
     </section>
   </div>
+
+  <script src="./src/auth.js" defer></script>
 </body>
 </html>
