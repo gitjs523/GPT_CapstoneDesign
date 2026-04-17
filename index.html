@@ -3,13 +3,60 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GPT Capstone Design</title>
+  <title>SNOW Workspace</title>
   <link rel="stylesheet" href="./src/styles/main.css">
 </head>
 <body>
-  <div id="app">
-    <h1>Web Project Starter</h1>
-    <p>여기서부터 페이지를 만들면 됩니다.</p>
+  <div class="page-shell">
+    <header class="hero">
+      <a class="top-link" href="./login.html">Login</a>
+      <div class="hero-copy">
+        <p class="eyebrow">Document Intelligence Workspace</p>
+        <h1>SNOW</h1>
+      </div>
+      <div class="hero-status">
+        <span class="status-dot"></span>
+        <span>Model slots ready</span>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="panel output-panel">
+        <div class="panel-heading">
+          <p class="panel-kicker">Output</p>
+          <h2>텍스트 출력</h2>
+        </div>
+        <div id="output-window" class="output-window">
+          아직 생성된 결과가 없습니다. 문서를 업로드하고 요청을 입력한 뒤 실행하기를 눌러주세요.
+        </div>
+      </section>
+
+      <section class="panel input-panel">
+        <div class="panel-heading">
+          <p class="panel-kicker">Prompt</p>
+          <h2>텍스트 입력</h2>
+        </div>
+        <label class="textarea-wrap">
+          <span>문제 생성 요청</span>
+          <textarea id="prompt-input" placeholder="예: 핵심 개념 위주로 객관식 10문제와 주관식 3문제를 만들어줘."></textarea>
+        </label>
+        <div class="inline-upload">
+          <label class="upload-dropzone compact-upload" for="document-upload">
+            <input id="document-upload" type="file" accept=".pdf,.ppt,.pptx">
+            <strong>PDF 또는 PPT 업로드</strong>
+            <span id="selected-file-name">아직 업로드된 문서가 없습니다.</span>
+          </label>
+        </div>
+        <div class="controls">
+          <button type="button" id="generate-button" class="primary-button">실행하기</button>
+          <button type="button" id="reset-button" class="ghost-button">초기화</button>
+        </div>
+      </section>
+
+      <!-- Embedding model 연결 위치 -->
+      <!-- Generative model 연결 위치 -->
+      <!-- Retrieved chunks / metadata 연결 위치 -->
+    </main>
   </div>
 
   <script src="./src/main.js"></script>

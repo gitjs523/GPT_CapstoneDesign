@@ -2,17 +2,364 @@
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  font-family: sans-serif;
-  background: #f5f5f5;
-  color: #111;
+:root {
+  --surface: rgba(255, 252, 247, 0.86);
+  --surface-strong: #fffdf8;
+  --line: rgba(33, 36, 28, 0.12);
+  --text: #1d221a;
+  --muted: #5a6454;
+  --accent: #c96d32;
+  --accent-deep: #8e4719;
+  --shadow: 0 18px 50px rgba(53, 40, 18, 0.12);
 }
 
-#app {
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(232, 173, 122, 0.36), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(132, 160, 120, 0.18), transparent 30%),
+    linear-gradient(180deg, #f7f2e8 0%, #efe7db 100%);
+}
+
+.page-shell {
+  min-height: 100vh;
+  padding: 16px 20px;
+}
+
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px 4px;
+  text-align: center;
+}
+
+.hero-copy {
+  max-width: 760px;
+}
+
+.eyebrow,
+.panel-kicker,
+.meta-label,
+.slot-label {
+  margin: 0 0 6px;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+}
+
+.hero h1,
+.auth-title {
+  margin: 0;
+  font-size: clamp(1.9rem, 5vw, 3.2rem);
+  line-height: 1.05;
+}
+
+.hero-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(201, 109, 50, 0.2);
+  white-space: nowrap;
+  font-size: 0.88rem;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2e9b62;
+  box-shadow: 0 0 0 6px rgba(46, 155, 98, 0.12);
+}
+
+.top-link {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(29, 34, 26, 0.12);
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+  align-items: start;
+}
+
+.panel {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+
+.panel-heading h2 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.input-panel,
+.output-panel {
+  grid-column: 3 / span 8;
+}
+
+.input-panel {
+  grid-row: 2;
+}
+
+.output-panel {
+  grid-row: 1;
+  grid-column: 3 / span 8;
+}
+
+.model-panel {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+
+.login-form,
+.textarea-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-form label,
+.textarea-wrap span {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.auth-shell {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  text-align: center;
   padding: 24px;
+}
+
+.auth-card {
+  width: min(100%, 460px);
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: rgba(255, 252, 247, 0.88);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.auth-text {
+  margin: 14px 0 28px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+input,
+textarea {
+  width: 100%;
+  margin-top: 4px;
+  border: 1px solid rgba(29, 34, 26, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.84);
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--text);
+}
+
+input:focus,
+textarea:focus {
+  outline: 2px solid rgba(201, 109, 50, 0.28);
+  border-color: rgba(201, 109, 50, 0.48);
+}
+
+.upload-dropzone {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  min-height: 62px;
+  text-align: center;
+  padding: 10px 14px;
+  border: 1.5px dashed rgba(201, 109, 50, 0.5);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(247, 233, 220, 0.66));
+  cursor: pointer;
+}
+
+.upload-dropzone input {
+  display: none;
+}
+
+.upload-dropzone strong {
+  font-size: 0.92rem;
+}
+
+.upload-dropzone span,
+.upload-meta p,
+.output-window {
+  color: var(--muted);
+}
+
+.upload-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.upload-meta p {
+  margin: 0;
+}
+
+textarea {
+  min-height: 42px;
+  resize: none;
+}
+
+.inline-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 12px;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+.primary-button {
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  color: #fff;
+}
+
+.secondary-button {
+  background: #1d221a;
+  color: #fff;
+}
+
+.ghost-button {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid rgba(29, 34, 26, 0.12);
+}
+
+.output-window {
+  min-height: 132px;
+  border-radius: 20px;
+  padding: 12px;
+  background: var(--surface-strong);
+  border: 1px solid rgba(29, 34, 26, 0.08);
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.compact-upload {
+  min-height: 62px;
+  flex: 1;
+  align-items: flex-start;
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.compact-upload strong {
+  font-size: 0.92rem;
+}
+
+.compact-upload span {
+  font-size: 0.82rem;
+}
+
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.model-slot {
+  padding: 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(29, 34, 26, 0.08);
+}
+
+.slot-box {
+  min-height: 56px;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  border: 1px dashed rgba(29, 34, 26, 0.2);
+  border-radius: 16px;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(255, 252, 247, 0.9);
+}
+
+@media (max-width: 1024px) {
+  .input-panel,
+  .output-panel {
+    grid-column: span 12;
+    grid-row: auto;
+  }
+
+  .model-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .page-shell {
+    padding: 12px;
+  }
+
+  .hero {
+    padding: 14px 10px 4px;
+  }
+
+  .top-link {
+    position: static;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .controls,
+  .inline-upload {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
