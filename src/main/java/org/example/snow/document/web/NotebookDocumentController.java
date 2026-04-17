@@ -3,6 +3,7 @@ package org.example.snow.document.web;
 import lombok.RequiredArgsConstructor;
 import org.example.snow.auth.security.AuthenticatedUserPrincipal;
 import org.example.snow.document.application.DocumentService;
+import org.example.snow.document.application.DocumentUploadCommand;
 import org.example.snow.document.application.UploadedDocument;
 import org.example.snow.document.web.dto.DocumentResponse;
 import org.example.snow.global.exception.BusinessException;
@@ -55,7 +56,7 @@ public class NotebookDocumentController {
                 file.getBytes()
         );
         DocumentResponse response = DocumentResponse.from(
-                documentService.createDocument(principal.userId(), notebookId, uploaded)
+                documentService.createDocument(principal.userId(), notebookId, new DocumentUploadCommand(uploaded, null))
         );
         return ResponseEntity.created(
                 URI.create("/api/notebooks/" + notebookId + "/documents/" + response.documentId())

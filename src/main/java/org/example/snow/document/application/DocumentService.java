@@ -18,6 +18,7 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final NotebookRepository notebookRepository;
+    private final DocumentAnalysisService documentAnalysisService;
 
     @Transactional(readOnly = true)
     public List<Document> getDocuments(Long userId, Long notebookId) {
@@ -26,8 +27,9 @@ public class DocumentService {
     }
 
     @Transactional
-    public Document createDocument(Long userId, Long notebookId, UploadedDocument file) {
+    public Document createDocument(Long userId, Long notebookId, DocumentUploadCommand command) {
         Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
+        UploadedDocument file = command.file();
         String fileType = resolveFileType(file.contentType(), file.originalFilename());
         Document document = Document.create(
                 notebook,
@@ -36,7 +38,9 @@ public class DocumentService {
                 fileType,
                 (long) file.content().length
         );
-        return documentRepository.save(document);
+        Document saved = documentRepository.save(document);
+        documentAnalysisService.analyzeAsync(saved.getDocumentId(), command);
+        return saved;
     }
 
     @Transactional(readOnly = true)

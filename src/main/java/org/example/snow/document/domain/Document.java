@@ -81,6 +81,23 @@ public class Document {
         return new Document(notebook, originalFileName, storedFileName, fileType, fileSize);
     }
 
+    public void startAnalysis() {
+        this.analysisStatus = AnalysisStatus.ANALYZING;
+        this.analysisStartedAt = LocalDateTime.now();
+    }
+
+    public void completeAnalysis(int pageCount) {
+        this.analysisStatus = AnalysisStatus.COMPLETED;
+        this.pageCount = pageCount;
+        this.analysisFinishedAt = LocalDateTime.now();
+    }
+
+    public void failAnalysis(String errorMessage) {
+        this.analysisStatus = AnalysisStatus.FAILED;
+        this.analysisErrorMessage = errorMessage;
+        this.analysisFinishedAt = LocalDateTime.now();
+    }
+
     @PrePersist
     void prePersist() {
         if (uploadedAt == null) {
