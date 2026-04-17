@@ -3,11 +3,11 @@ package org.example.snow.document.application;
 import org.example.snow.document.application.chunking.ChunkComposer;
 import org.example.snow.document.application.chunking.ChunkStrategyResolver;
 import org.example.snow.document.application.chunking.SectionBuilder;
-import org.example.snow.document.domain.Chunk;
 import org.example.snow.document.domain.ChunkStrategy;
+import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.ExtractedDocument;
-import org.example.snow.document.domain.Section;
-import org.example.snow.document.domain.SourceUnit;
+import org.example.snow.document.domain.ExtractedSection;
+import org.example.snow.document.domain.ExtractedSourceUnit;
 import org.example.snow.document.domain.SourceUnitType;
 import org.junit.jupiter.api.Test;
 
@@ -30,17 +30,17 @@ class ChunkingServiceTest {
                 "application/pdf",
                 SourceUnitType.PAGE,
                 List.of(
-                        new SourceUnit(
+                        new ExtractedSourceUnit(
                                 1,
                                 "Page 1",
                                 "1. RAG Overview\nRAG는 검색 증강 생성이다.\n\n검색 단계가 필요하다."
                         ),
-                        new SourceUnit(
+                        new ExtractedSourceUnit(
                                 2,
                                 "Page 2",
                                 "임베딩은 문서를 벡터로 변환한다.\n\n유사도 검색에 사용된다."
                         ),
-                        new SourceUnit(
+                        new ExtractedSourceUnit(
                                 3,
                                 "Page 3",
                                 "2. Embedding Pipeline\n청킹 후 임베딩을 생성한다."
@@ -48,7 +48,7 @@ class ChunkingServiceTest {
                 )
         );
 
-        List<Section> sections = chunkingService.buildSections(document);
+        List<ExtractedSection> sections = chunkingService.buildSections(document);
 
         assertThat(sections).hasSize(2);
         assertThat(sections.get(0).heading()).isEqualTo("1. RAG Overview");
@@ -70,12 +70,12 @@ class ChunkingServiceTest {
                 "application/pdf",
                 SourceUnitType.PAGE,
                 List.of(
-                        new SourceUnit(
+                        new ExtractedSourceUnit(
                                 1,
                                 "Page 1",
                                 "1. RAG Overview\n" + paragraphOne + "\n\n" + paragraphTwo
                         ),
-                        new SourceUnit(
+                        new ExtractedSourceUnit(
                                 2,
                                 "Page 2",
                                 paragraphThree
@@ -83,8 +83,8 @@ class ChunkingServiceTest {
                 )
         );
 
-        List<Section> sections = chunkingService.buildSections(document);
-        List<Chunk> chunks = chunkingService.chunk(document, sections, ChunkStrategy.SECTION);
+        List<ExtractedSection> sections = chunkingService.buildSections(document);
+        List<ExtractedChunk> chunks = chunkingService.chunk(document, sections, ChunkStrategy.SECTION);
 
         assertThat(chunks.size()).isGreaterThan(1);
         assertThat(chunks).allSatisfy(chunk -> {

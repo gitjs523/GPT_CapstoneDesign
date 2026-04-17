@@ -1,10 +1,10 @@
 package org.example.snow.document.application.chunking;
 
-import org.example.snow.document.domain.Chunk;
 import org.example.snow.document.domain.ChunkStrategy;
+import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.ExtractedDocument;
-import org.example.snow.document.domain.Section;
-import org.example.snow.document.domain.SourceUnit;
+import org.example.snow.document.domain.ExtractedSection;
+import org.example.snow.document.domain.ExtractedSourceUnit;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -20,9 +20,9 @@ public class ChunkComposer {
     private static final int MAX_CHUNK_LENGTH = 1_600;
     private static final Pattern SENTENCE_SPLIT_PATTERN = Pattern.compile("(?<=[.!?。])\\s+");
 
-    public List<Chunk> compose(
+    public List<ExtractedChunk> compose(
             ExtractedDocument document,
-            List<Section> sections,
+            List<ExtractedSection> sections,
             ChunkStrategy appliedStrategy
     ) {
         return switch (appliedStrategy) {
@@ -33,15 +33,15 @@ public class ChunkComposer {
         };
     }
 
-    private List<Chunk> toSourceUnitChunks(ExtractedDocument document) {
-        List<Chunk> chunks = new ArrayList<>();
+    private List<ExtractedChunk> toSourceUnitChunks(ExtractedDocument document) {
+        List<ExtractedChunk> chunks = new ArrayList<>();
         int order = 1;
 
-        for (SourceUnit sourceUnit : document.sourceUnits()) {
+        for (ExtractedSourceUnit sourceUnit : document.sourceUnits()) {
             if (sourceUnit.text().isBlank()) {
                 continue;
             }
-            chunks.add(new Chunk(
+            chunks.add(new ExtractedChunk(
                     order++,
                     sourceUnit.heading(),
                     sourceUnit.text(),
@@ -55,11 +55,11 @@ public class ChunkComposer {
         return chunks;
     }
 
-    private List<Chunk> toSectionChunks(List<Section> sections, boolean forceParagraphSplit) {
-        List<Chunk> chunks = new ArrayList<>();
+    private List<ExtractedChunk> toSectionChunks(List<ExtractedSection> sections, boolean forceParagraphSplit) {
+        List<ExtractedChunk> chunks = new ArrayList<>();
         int order = 1;
 
-        for (Section section : sections) {
+        for (ExtractedSection section : sections) {
             List<String> chunkTexts = splitSectionText(section.text(), forceParagraphSplit);
             int part = 1;
 
@@ -67,7 +67,7 @@ public class ChunkComposer {
                 String heading = chunkTexts.size() == 1
                         ? section.heading()
                         : section.heading() + " (Part " + part++ + ")";
-                chunks.add(new Chunk(
+                chunks.add(new ExtractedChunk(
                         order++,
                         heading,
                         chunkText,

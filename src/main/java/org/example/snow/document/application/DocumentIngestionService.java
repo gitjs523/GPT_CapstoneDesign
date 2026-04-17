@@ -3,10 +3,10 @@ package org.example.snow.document.application;
 import lombok.RequiredArgsConstructor;
 import org.example.snow.document.application.port.TextExtractor;
 import org.example.snow.document.domain.ChunkStrategy;
-import org.example.snow.document.domain.Chunk;
+import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.ExtractedDocument;
-import org.example.snow.document.domain.Section;
-import org.example.snow.document.domain.SourceUnit;
+import org.example.snow.document.domain.ExtractedSection;
+import org.example.snow.document.domain.ExtractedSourceUnit;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
@@ -30,8 +30,8 @@ public class DocumentIngestionService {
                 preprocessedDocument.sourceType(),
                 command.chunkStrategy()
         );
-        List<Section> sections = chunkingService.buildSections(preprocessedDocument);
-        List<Chunk> chunks = chunkingService.chunk(preprocessedDocument, sections, appliedStrategy);
+        List<ExtractedSection> sections = chunkingService.buildSections(preprocessedDocument);
+        List<ExtractedChunk> chunks = chunkingService.chunk(preprocessedDocument, sections, appliedStrategy);
         String preprocessedText = joinSourceUnits(preprocessedDocument.sourceUnits());
 
         return new DocumentProcessingResult(
@@ -43,6 +43,8 @@ public class DocumentIngestionService {
                 chunks.size(),
                 preprocessedText.length(),
                 preprocessedText,
+                preprocessedDocument,
+                sections,
                 chunks
         );
     }
@@ -63,8 +65,8 @@ public class DocumentIngestionService {
 
     private ExtractedDocument preprocess(ExtractedDocument document) {
         try {
-            List<SourceUnit> sourceUnits = document.sourceUnits().stream()
-                    .map(sourceUnit -> new SourceUnit(
+            List<ExtractedSourceUnit> sourceUnits = document.sourceUnits().stream()
+                    .map(sourceUnit -> new ExtractedSourceUnit(
                             sourceUnit.index(),
                             sourceUnit.heading(),
                             textPreprocessor.normalize(sourceUnit.text())
@@ -76,9 +78,9 @@ public class DocumentIngestionService {
         }
     }
 
-    private String joinSourceUnits(List<SourceUnit> sourceUnits) {
+    private String joinSourceUnits(List<ExtractedSourceUnit> sourceUnits) {
         return sourceUnits.stream()
-                .map(SourceUnit::text)
+                .map(ExtractedSourceUnit::text)
                 .filter(text -> !text.isBlank())
                 .reduce((left, right) -> left + "\n\n" + right)
                 .orElse("");

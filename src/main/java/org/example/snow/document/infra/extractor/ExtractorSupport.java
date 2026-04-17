@@ -1,7 +1,7 @@
 package org.example.snow.document.infra.extractor;
 
 import org.example.snow.document.application.UploadedDocument;
-import org.example.snow.document.domain.SourceUnit;
+import org.example.snow.document.domain.ExtractedSourceUnit;
 import org.springframework.http.MediaType;
 import org.springframework.util.StringUtils;
 
@@ -31,12 +31,12 @@ final class ExtractorSupport {
         return StringUtils.hasText(file.contentType()) ? file.contentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
     }
 
-    static SourceUnit pageSourceUnit(int pageNumber, String text) {
-        return new SourceUnit(pageNumber, "Page " + pageNumber, text);
+    static ExtractedSourceUnit pageSourceUnit(int pageNumber, String text) {
+        return new ExtractedSourceUnit(pageNumber, "Page " + pageNumber, text);
     }
 
-    static SourceUnit slideSourceUnit(int slideNumber, String heading, String text) {
+    static ExtractedSourceUnit slideSourceUnit(int slideNumber, String heading, String text) {
         String resolvedHeading = StringUtils.hasText(heading) ? heading : "Slide " + slideNumber;
-        return new SourceUnit(slideNumber, resolvedHeading, text);
+        return new ExtractedSourceUnit(slideNumber, resolvedHeading, text);
     }
 }

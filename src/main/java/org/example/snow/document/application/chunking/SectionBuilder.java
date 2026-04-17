@@ -1,8 +1,8 @@
 package org.example.snow.document.application.chunking;
 
 import org.example.snow.document.domain.ExtractedDocument;
-import org.example.snow.document.domain.Section;
-import org.example.snow.document.domain.SourceUnit;
+import org.example.snow.document.domain.ExtractedSection;
+import org.example.snow.document.domain.ExtractedSourceUnit;
 import org.example.snow.document.domain.SourceUnitType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -21,12 +21,12 @@ public class SectionBuilder {
     private static final Pattern GENERIC_PAGE_HEADING_PATTERN = Pattern.compile("^Page\\s+\\d+$", Pattern.CASE_INSENSITIVE);
     private static final Pattern GENERIC_SLIDE_HEADING_PATTERN = Pattern.compile("^Slide\\s+\\d+$", Pattern.CASE_INSENSITIVE);
 
-    public List<Section> build(ExtractedDocument document) {
-        List<Section> sections = new ArrayList<>();
+    public List<ExtractedSection> build(ExtractedDocument document) {
+        List<ExtractedSection> sections = new ArrayList<>();
         SectionAccumulator current = null;
         int order = 1;
 
-        for (SourceUnit sourceUnit : document.sourceUnits()) {
+        for (ExtractedSourceUnit sourceUnit : document.sourceUnits()) {
             SectionCandidate candidate = buildCandidate(document.sourceType(), sourceUnit);
             if (candidate.text().isBlank()) {
                 continue;
@@ -61,7 +61,7 @@ public class SectionBuilder {
         return !current.matchesHeading(candidate.heading());
     }
 
-    private SectionCandidate buildCandidate(SourceUnitType sourceType, SourceUnit sourceUnit) {
+    private SectionCandidate buildCandidate(SourceUnitType sourceType, ExtractedSourceUnit sourceUnit) {
         String normalizedText = sourceUnit.text() == null ? "" : sourceUnit.text().trim();
         if (normalizedText.isBlank()) {
             return new SectionCandidate(defaultSectionHeading(sourceUnit.index()), "", false, sourceUnit.index());
@@ -233,8 +233,8 @@ public class SectionBuilder {
             return heading.equalsIgnoreCase(candidateHeading);
         }
 
-        Section toSection(int order) {
-            return new Section(
+        ExtractedSection toSection(int order) {
+            return new ExtractedSection(
                     order,
                     heading,
                     textBuilder.toString().trim(),

@@ -1,6 +1,6 @@
 package org.example.snow.document.web.dto;
 
-import org.example.snow.document.domain.Chunk;
+import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.SourceUnitType;
 
 import java.util.List;
@@ -15,7 +15,7 @@ public record ChunkResponse(
         List<Integer> sourceIndices
 ) {
 
-    public static ChunkResponse from(Chunk chunk) {
+    public static ChunkResponse from(ExtractedChunk chunk) {
         return new ChunkResponse(
                 chunk.order(),
                 chunk.heading(),

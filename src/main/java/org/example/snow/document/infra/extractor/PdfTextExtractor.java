@@ -6,7 +6,7 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.example.snow.document.application.UploadedDocument;
 import org.example.snow.document.application.port.TextExtractor;
 import org.example.snow.document.domain.ExtractedDocument;
-import org.example.snow.document.domain.SourceUnit;
+import org.example.snow.document.domain.ExtractedSourceUnit;
 import org.example.snow.document.domain.SourceUnitType;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
@@ -30,7 +30,7 @@ public class PdfTextExtractor implements TextExtractor {
     public ExtractedDocument extract(UploadedDocument file) {
         try (PDDocument document = Loader.loadPDF(file.content())) {
             PDFTextStripper stripper = new PDFTextStripper();
-            List<SourceUnit> sourceUnits = new ArrayList<>();
+            List<ExtractedSourceUnit> sourceUnits = new ArrayList<>();
 
             for (int pageNumber = 1; pageNumber <= document.getNumberOfPages(); pageNumber++) {
                 stripper.setStartPage(pageNumber);
