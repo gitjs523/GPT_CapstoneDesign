@@ -1,8 +1,10 @@
 spring:
   application:
     name: Snow
+
   config:
     import: optional:file:.env[.properties]
+
   ai:
     model:
       chat: ollama
@@ -15,24 +17,31 @@ spring:
       embedding:
         options:
           model: ${OLLAMA_EMBEDDING_MODEL:qwen3-embedding:0.6b}
+
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+
   jpa:
     open-in-view: false
     hibernate:
       ddl-auto: none
+
   sql:
     init:
       mode: never
+
+  flyway:
+    baseline-on-migrate: true  
 
 auth:
   jwt:
     issuer: ${AUTH_JWT_ISSUER:snow}
     access-token-secret: ${AUTH_ACCESS_TOKEN_SECRET}
     access-token-expiration-seconds: ${AUTH_ACCESS_TOKEN_EXPIRATION_SECONDS:900}
+
   refresh-token:
     expiration-seconds: ${AUTH_REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
     cookie:
@@ -44,3 +53,4 @@ auth:
 
 server:
   port: ${SERVER_PORT:8080}
+  address: 0.0.0.0

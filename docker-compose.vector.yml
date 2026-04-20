@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: gpt_capstonedesign-postgres-vector
+    environment:
+      POSTGRES_USER: snow-user
+      POSTGRES_PASSWORD: Snow1234!
+      POSTGRES_DB: snow-db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
+
+  app:
+    image: gpt_capstonedesign-app
+    container_name: gpt_capstonedesign-app-vector
+    depends_on:
+      - postgres
+
+    # 🔥 핵심 추가 부분
+    env_file:
+      - .env
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/snow-db
+      SPRING_DATASOURCE_USERNAME: snow-user
+      SPRING_DATASOURCE_PASSWORD: Snow1234!
+
+    ports:
+      - "8081:8080"
+
+volumes:
+  pgvector-data:
