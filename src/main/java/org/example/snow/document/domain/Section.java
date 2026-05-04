@@ -57,6 +57,9 @@ public class Section {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     private Section(Document document, ExtractedSection extracted) {
         this.document = document;
         this.sectionOrder = extracted.order();
@@ -69,6 +72,14 @@ public class Section {
 
     public static Section create(Document document, ExtractedSection extracted) {
         return new Section(document, extracted);
+    }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isDeleted() {
+        return this.deletedAt != null;
     }
 
     @PrePersist

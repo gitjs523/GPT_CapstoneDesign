@@ -2,6 +2,7 @@ package org.example.snow.document.application;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.snow.ai.application.OllamaService;
 import org.example.snow.document.domain.Chunk;
 import org.example.snow.document.domain.Document;
 import org.example.snow.document.domain.ExtractedChunk;
@@ -17,7 +18,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -29,6 +32,7 @@ public class DocumentAnalysisService {
     private final SectionRepository sectionRepository;
     private final ChunkRepository chunkRepository;
     private final DocumentIngestionService documentIngestionService;
+    private final OllamaService ollamaService;
 
     @Async
     @Transactional
@@ -52,6 +56,11 @@ public class DocumentAnalysisService {
         List<Section> savedSections = saveSections(document, result.sections());
         saveChunks(document, savedSections, result.sections(), result.chunks());
 
+        // TODO: Chunk 임베딩 생성 및 pgvector 저장 (임베딩 모델 연동 후 추가)
+
+        String summaryText = ollamaService.generateSummary(buildSummaryInput(result.sections()));
+        document.saveSummary(summaryText);
+
         document.completeAnalysis(result.extractedDocument().sourceUnits().size());
         documentRepository.save(document);
     }
@@ -60,8 +69,18 @@ public class DocumentAnalysisService {
     public void markFailed(Long documentId, String errorMessage) {
         documentRepository.findById(documentId).ifPresent(doc -> {
             doc.failAnalysis(errorMessage);
+            doc.softDelete();
+            LocalDateTime now = LocalDateTime.now();
+            chunkRepository.softDeleteByDocumentId(documentId, now);
+            sectionRepository.softDeleteByDocumentId(documentId, now);
             documentRepository.save(doc);
         });
+    }
+
+    private String buildSummaryInput(List<ExtractedSection> sections) {
+        return sections.stream()
+                .map(ExtractedSection::text)
+                .collect(Collectors.joining("\n\n"));
     }
 
     private void saveSourceUnits(Document document, ExtractedDocument extractedDocument) {

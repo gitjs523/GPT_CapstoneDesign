@@ -33,6 +33,9 @@ public class UserAccount {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     private UserAccount(String email, String passwordHash) {
         this.email = email;
         this.passwordHash = passwordHash;
@@ -40,6 +43,14 @@ public class UserAccount {
 
     public static UserAccount create(String email, String passwordHash) {
         return new UserAccount(email, passwordHash);
+    }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isDeleted() {
+        return this.deletedAt != null;
     }
 
     @PrePersist

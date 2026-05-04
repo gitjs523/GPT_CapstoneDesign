@@ -5,7 +5,9 @@ import org.example.snow.auth.security.AuthenticatedUserPrincipal;
 import org.example.snow.document.application.DocumentService;
 import org.example.snow.document.application.DocumentUploadCommand;
 import org.example.snow.document.application.UploadedDocument;
+import org.example.snow.document.web.dto.DocumentAnalysisStatusResponse;
 import org.example.snow.document.web.dto.DocumentResponse;
+import org.example.snow.document.web.dto.SectionResponse;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.springframework.http.MediaType;
@@ -70,6 +72,28 @@ public class NotebookDocumentController {
             @PathVariable Long documentId) {
         return ResponseEntity.ok(DocumentResponse.from(
                 documentService.getDocument(principal.userId(), notebookId, documentId)
+        ));
+    }
+
+    @GetMapping("/{documentId}/sections")
+    public ResponseEntity<List<SectionResponse>> getSections(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @PathVariable Long notebookId,
+            @PathVariable Long documentId) {
+        List<SectionResponse> sections = documentService.getSections(principal.userId(), notebookId, documentId)
+                .stream()
+                .map(SectionResponse::from)
+                .toList();
+        return ResponseEntity.ok(sections);
+    }
+
+    @GetMapping("/{documentId}/status")
+    public ResponseEntity<DocumentAnalysisStatusResponse> getDocumentStatus(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @PathVariable Long notebookId,
+            @PathVariable Long documentId) {
+        return ResponseEntity.ok(DocumentAnalysisStatusResponse.from(
+                documentService.getDocumentStatus(principal.userId(), notebookId, documentId)
         ));
     }
 

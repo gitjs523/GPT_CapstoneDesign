@@ -58,6 +58,9 @@ public class Chunk {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     private Chunk(Section section, Document document, ExtractedChunk extracted) {
         this.section = section;
         this.document = document;
@@ -70,6 +73,14 @@ public class Chunk {
 
     public static Chunk create(Section section, Document document, ExtractedChunk extracted) {
         return new Chunk(section, document, extracted);
+    }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isDeleted() {
+        return this.deletedAt != null;
     }
 
     @PrePersist

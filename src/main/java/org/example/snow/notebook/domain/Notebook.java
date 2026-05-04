@@ -39,23 +39,42 @@ public class Notebook {
     @Column(nullable = false, length = 255)
     private String title;
 
+    @Column(name = "is_default", nullable = false)
+    private boolean isDefault;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    private Notebook(UserAccount user, String title) {
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    private Notebook(UserAccount user, String title, boolean isDefault) {
         this.user = user;
         this.title = title;
+        this.isDefault = isDefault;
     }
 
     public static Notebook createDefault(UserAccount user) {
-        return new Notebook(user, DEFAULT_TITLE);
+        return new Notebook(user, DEFAULT_TITLE, true);
     }
 
     public static Notebook create(UserAccount user, String title) {
-        return new Notebook(user, title);
+        return new Notebook(user, title, false);
+    }
+
+    public void rename(String title) {
+        this.title = title;
+    }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isDeleted() {
+        return this.deletedAt != null;
     }
 
     @PrePersist
@@ -67,10 +86,6 @@ public class Notebook {
         if (updatedAt == null) {
             updatedAt = now;
         }
-    }
-
-    public void rename(String title) {
-        this.title = title;
     }
 
     @PreUpdate

@@ -54,6 +54,9 @@ public class Document {
     @Column(name = "analysis_status", nullable = false, length = 20)
     private AnalysisStatus analysisStatus;
 
+    @Column(name = "summary_text", columnDefinition = "text")
+    private String summaryText;
+
     @Column(name = "analysis_error_message", columnDefinition = "text")
     private String analysisErrorMessage;
 
@@ -65,6 +68,9 @@ public class Document {
 
     @Column(name = "analysis_finished_at")
     private LocalDateTime analysisFinishedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     private Document(Notebook notebook, String originalFileName, String storedFileName,
                      String fileType, Long fileSize) {
@@ -96,6 +102,18 @@ public class Document {
         this.analysisStatus = AnalysisStatus.FAILED;
         this.analysisErrorMessage = errorMessage;
         this.analysisFinishedAt = LocalDateTime.now();
+    }
+
+    public void saveSummary(String summaryText) {
+        this.summaryText = summaryText;
+    }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isDeleted() {
+        return this.deletedAt != null;
     }
 
     @PrePersist

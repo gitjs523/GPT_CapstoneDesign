@@ -15,6 +15,7 @@ AGENTS.md
 .codex/
 CLAUDE.md
 .claude/
+./docs
 
 # 주간 작업 내용
 docs/weekly
