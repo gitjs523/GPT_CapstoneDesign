@@ -34,6 +34,7 @@ spring:
       mode: never
 
   flyway:
+    enabled: true
     baseline-on-migrate: true  
 
 auth:
@@ -54,3 +55,9 @@ auth:
 server:
   port: ${SERVER_PORT:8080}
   address: 0.0.0.0
+
+logging:
+  level:
+    root: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate: DEBUG

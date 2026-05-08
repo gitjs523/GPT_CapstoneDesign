@@ -11,8 +11,8 @@ public class EmbeddingTestController {
 
     private final EmbeddingService embeddingService;
 
-    @GetMapping("/save")
-    public String save(@RequestParam String text) {
+    @PostMapping("/save")
+    public String save(@RequestBody String text) {
         embeddingService.saveEmbedding(text);
         return "저장 완료!";
     }
