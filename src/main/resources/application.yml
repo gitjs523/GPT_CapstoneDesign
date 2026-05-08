@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: Snow
+
+  config:
+    import: optional:file:.env[.properties]
+
+  ai:
+    model:
+      chat: ollama
+      embedding: ollama
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: ${OLLAMA_CHAT_MODEL:qwen3:4b-q4_K_M}
+      embedding:
+        options:
+          model: ${OLLAMA_EMBEDDING_MODEL:qwen3-embedding:0.6b}
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+
+  sql:
+    init:
+      mode: never
+
+auth:
+  jwt:
+    issuer: ${AUTH_JWT_ISSUER:snow}
+    access-token-secret: ${AUTH_ACCESS_TOKEN_SECRET}
+    access-token-expiration-seconds: ${AUTH_ACCESS_TOKEN_EXPIRATION_SECONDS:900}
+
+  refresh-token:
+    expiration-seconds: ${AUTH_REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
+    cookie:
+      name: ${AUTH_REFRESH_COOKIE_NAME:snow_refresh}
+      secure: ${AUTH_REFRESH_COOKIE_SECURE:false}
+      same-site: ${AUTH_REFRESH_COOKIE_SAME_SITE:Lax}
+      path: ${AUTH_REFRESH_COOKIE_PATH:/api/auth}
+      domain: ${AUTH_REFRESH_COOKIE_DOMAIN:}
+
+cloud:
+  aws:
+    region: ${AWS_REGION:ap-northeast-2}
+    s3:
+      bucket: ${S3_BUCKET_NAME}
+
+server:
+  port: ${SERVER_PORT:8080}
+  address: 0.0.0.0
