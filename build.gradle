@@ -43,6 +43,8 @@ dependencies {
     implementation 'org.apache.poi:poi-ooxml:5.5.0'
     implementation 'org.apache.poi:poi-scratchpad:5.5.0'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
+    implementation platform('software.amazon.awssdk:bom:2.26.31')
+    implementation 'software.amazon.awssdk:s3'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'

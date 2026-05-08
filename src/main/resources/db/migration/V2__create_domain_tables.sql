@@ -1,5 +1,5 @@
 -- pgvector extension
--- embedding 컬럼(vector(N))은 차원 수 확정 후 V3에서 추가
+-- embedding 컬럼(vector(1024))은 V3에서 추가 (qwen3-embedding:0.6b, 1024차원 확정)
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- document
@@ -45,7 +45,7 @@ CREATE TABLE section (
     source_start_index  INT NOT NULL,
     source_end_index    INT NOT NULL,
     source_indices      INTEGER[] NOT NULL,
-    -- embedding vector(N): 차원 수 확정 후 V3에서 추가
+    -- embedding vector(1024): V3에서 추가
     created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_section_document FOREIGN KEY (document_id) REFERENCES document (document_id) ON DELETE CASCADE
 );
@@ -62,7 +62,7 @@ CREATE TABLE chunk (
     source_start_index  INT NULL,
     source_end_index    INT NULL,
     source_indices      INTEGER[] NULL,
-    -- embedding vector(N): 차원 수 확정 후 V3에서 추가
+    -- embedding vector(1024): V3에서 추가
     created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_chunk_section  FOREIGN KEY (section_id)  REFERENCES section  (section_id)  ON DELETE CASCADE,
     CONSTRAINT fk_chunk_document FOREIGN KEY (document_id) REFERENCES document (document_id) ON DELETE CASCADE

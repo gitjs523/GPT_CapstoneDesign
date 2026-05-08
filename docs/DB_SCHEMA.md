@@ -132,7 +132,7 @@ SNOW 프로젝트의 기준 DB 스키마 문서다.
 | `source_start_index` | int | NOT NULL | |
 | `source_end_index` | int | NOT NULL | |
 | `source_indices` | integer[] | NOT NULL | |
-| `embedding` | vector(N) | NULL | 벡터 검색 대상. qwen3-embedding:0.6b 기준 차원 수 확정 후 반영 |
+| `embedding` | vector(1024) | NULL | 벡터 검색 대상. qwen3-embedding:0.6b 기준 1024차원 |
 | `created_at` | timestamp | NOT NULL | |
 | `deleted_at` | timestamp | NULL | soft delete + embedding NULL 초기화 — section 삭제 cascade |
 
@@ -246,6 +246,4 @@ SNOW 프로젝트의 기준 DB 스키마 문서다.
 
 ## 미결 사항
 
-| # | 항목 | 내용 |
-|---|---|---|
-| 1 | vector 차원 수 | `vector(N)` — qwen3-embedding:0.6b 실측 후 확정 필요 |
+없음.

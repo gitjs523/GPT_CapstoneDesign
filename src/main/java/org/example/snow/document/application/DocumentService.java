@@ -7,6 +7,7 @@ import org.example.snow.document.domain.Section;
 import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.document.infra.DocumentRepository;
 import org.example.snow.document.infra.SectionRepository;
+import org.example.snow.document.application.port.FileStorageService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.example.snow.notebook.domain.Notebook;
@@ -26,6 +27,7 @@ public class DocumentService {
     private final SectionRepository sectionRepository;
     private final ChunkRepository chunkRepository;
     private final DocumentAnalysisService documentAnalysisService;
+    private final FileStorageService fileStorageService;
 
     @Transactional(readOnly = true)
     public List<Document> getDocuments(Long userId, Long notebookId) {
@@ -38,10 +40,11 @@ public class DocumentService {
         Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
         UploadedDocument file = command.file();
         String fileType = resolveFileType(file.contentType(), file.originalFilename());
+        String storedKey = fileStorageService.upload(file.content(), file.contentType(), file.originalFilename(), notebookId);
         Document document = Document.create(
                 notebook,
                 file.originalFilename(),
-                file.originalFilename(),
+                storedKey,
                 fileType,
                 (long) file.content().length
         );
