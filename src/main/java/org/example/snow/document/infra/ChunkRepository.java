@@ -7,8 +7,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface ChunkRepository extends JpaRepository<Chunk, Long> {
+
+    List<Chunk> findByDocument_DocumentId(Long documentId);
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Chunk c SET c.deletedAt = :now WHERE c.document.documentId = :documentId AND c.deletedAt IS NULL")

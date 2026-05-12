@@ -1,55 +1,126 @@
 package org.example.snow.ai.application;
 
 import lombok.RequiredArgsConstructor;
-import org.example.snow.ai.domain.Embedding;
-import org.example.snow.ai.infra.EmbeddingRepository;
+import lombok.extern.slf4j.Slf4j;
+
+import org.example.snow.document.domain.Chunk;
+
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.util.Random;
+import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmbeddingService {
 
-    private final EmbeddingRepository embeddingRepository;
     private final JdbcTemplate jdbcTemplate;
 
-    public void saveEmbedding(String text) {
+    private final RestTemplate restTemplate = new RestTemplate();
 
-        // ✅ 1. 임베딩 벡터 생성 (지금은 테스트용 랜덤값)
-        float[] vector = createDummyEmbedding();
+    public void saveEmbedding(Chunk chunk) {
 
-        // ✅ 2. float[] → PostgreSQL vector 문자열로 변환
-        String vectorString = convertToPgVector(vector);
+        log.info("===== saveEmbedding START =====");
 
-        // ✅ 3. JDBC로 직접 INSERT (핵심!!)
-        String sql = "INSERT INTO embeddings (text, embedding) VALUES (?, ?::vector)";
-        jdbcTemplate.update(sql, text, vectorString);
+        try {
+
+            if (chunk == null) {
+                log.error("chunk is null");
+                return;
+            }
+
+            log.info("chunkId = {}", chunk.getChunkId());
+            log.info("content = {}", chunk.getContent());
+
+            float[] vector = requestEmbedding(chunk.getContent());
+
+            String vectorString = convertToPgVector(vector);
+
+            log.info("before update");
+
+            String sql =
+                    "UPDATE chunk SET embedding = ?::vector WHERE chunk_id = ?";
+
+            int result = jdbcTemplate.update(
+                    sql,
+                    vectorString,
+                    chunk.getChunkId()
+            );
+
+            log.info("after update");
+            log.info("update result = {}", result);
+
+        } catch (Exception e) {
+
+            log.error("❌ Embedding DB error occurred", e);
+
+            throw e;
+        }
+
+        log.info("===== saveEmbedding END =====");
     }
 
-    // 🔹 더미 임베딩 생성
-    private float[] createDummyEmbedding() {
-        Random random = new Random();
-        float[] vector = new float[1024];
+    public float[] requestEmbedding(String text) {
 
-        for (int i = 0; i < 1024; i++) {
-            vector[i] = random.nextFloat();
+        String url =
+                "http://host.docker.internal:11434/api/embeddings";
+
+        HttpHeaders headers = new HttpHeaders();
+
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> body = Map.of(
+                "model", "qwen3-embedding:0.6b",
+                "prompt", text
+        );
+
+        HttpEntity<Map<String, Object>> request =
+                new HttpEntity<>(body, headers);
+
+        ResponseEntity<Map> response =
+                restTemplate.postForEntity(
+                        url,
+                        request,
+                        Map.class
+                );
+
+        List<Double> embeddingList =
+                (List<Double>) response.getBody().get("embedding");
+
+        float[] vector = new float[embeddingList.size()];
+
+        for (int i = 0; i < embeddingList.size(); i++) {
+
+            vector[i] =
+                    embeddingList.get(i).floatValue();
         }
 
         return vector;
     }
 
-    // 🔹 PostgreSQL vector 형식으로 변환
     private String convertToPgVector(float[] vector) {
+
         StringBuilder sb = new StringBuilder("[");
+
         for (int i = 0; i < vector.length; i++) {
+
             sb.append(vector[i]);
+
             if (i != vector.length - 1) {
                 sb.append(",");
             }
         }
+
         sb.append("]");
+
         return sb.toString();
     }
 }

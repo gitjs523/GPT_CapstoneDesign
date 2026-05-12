@@ -3,6 +3,7 @@ package org.example.snow.document.application;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.snow.ai.application.OllamaService;
+import org.example.snow.ai.application.EmbeddingService;
 import org.example.snow.document.domain.Chunk;
 import org.example.snow.document.domain.Document;
 import org.example.snow.document.domain.ExtractedChunk;
@@ -33,6 +34,7 @@ public class DocumentAnalysisService {
     private final ChunkRepository chunkRepository;
     private final DocumentIngestionService documentIngestionService;
     private final OllamaService ollamaService;
+    private final EmbeddingService embeddingService;
 
     @Async
     @Transactional
@@ -56,7 +58,14 @@ public class DocumentAnalysisService {
         List<Section> savedSections = saveSections(document, result.sections());
         saveChunks(document, savedSections, result.sections(), result.chunks());
 
-        // TODO: Chunk 임베딩 생성 및 pgvector 저장 (임베딩 모델 연동 후 추가)
+        // 저장된 Chunk 조회
+        List<Chunk> savedChunks = chunkRepository.findByDocument_DocumentId(document.getDocumentId());
+
+        // 각 Chunk 임베딩 생성
+        for (Chunk chunk : savedChunks) {
+
+            embeddingService.saveEmbedding(chunk);
+        }
 
         String summaryText = ollamaService.generateSummary(buildSummaryInput(result.sections()));
         document.saveSummary(summaryText);
@@ -111,6 +120,7 @@ public class DocumentAnalysisService {
                 .toList();
         chunkRepository.saveAll(chunks);
     }
+
 
     private Section findParentSection(
             List<Section> savedSections,
