@@ -16,50 +16,59 @@ public class EmbeddingSearchService {
     private final JdbcTemplate jdbcTemplate;
     private final EmbeddingService embeddingService;
 
-    public List<String> searchSimilarChunks(String query) {
+    public List<Map<String, Object>> searchSimilarChunks(String question) {
 
         log.info("===== SEARCH START =====");
-        log.info("query = {}", query);
 
-        // 1. 질문 embedding 생성 (재사용)
-        float[] queryVector = embeddingService.requestEmbedding(query);
+        try {
+            if (question == null || question.isBlank()) {
+                throw new IllegalArgumentException("question is empty");
+            }
 
-        String vectorString = convertToPgVector(queryVector);
+            float[] questionVector = embeddingService.requestEmbedding(question);
 
-        // 2. pgvector 유사도 검색
-        String sql = """
-                SELECT content
+            String vectorString = convertToPgVector(questionVector);
+
+            log.info("vectorString = {}", vectorString);
+
+            log.info("query embedding created");
+
+            String sql = """
+                SELECT
+                    chunk_id,
+                    content,
+                    section_id,
+                    embedding <=> ?::vector AS distance
                 FROM chunk
-                ORDER BY embedding <-> ?::vector
+                ORDER BY distance
                 LIMIT 5
-                """;
+            """;
 
-        List<String> results = jdbcTemplate.query(
-                sql,
-                (rs, rowNum) -> rs.getString("content"),
-                vectorString
-        );
+            List<Map<String, Object>> results = jdbcTemplate.queryForList(
+                    sql,
+                    vectorString
+            );
 
-        log.info("results size = {}", results.size());
-        log.info("===== SEARCH END =====");
+            log.info("search result size = {}", results.size());
+            log.info("===== SEARCH END =====");
 
-        return results;
+            return results;
+
+        } catch (Exception e) {
+            log.error("❌ Embedding search error", e);
+            throw e;
+        }
     }
-
+    
     private String convertToPgVector(float[] vector) {
-
         StringBuilder sb = new StringBuilder("[");
 
         for (int i = 0; i < vector.length; i++) {
             sb.append(vector[i]);
-
-            if (i != vector.length - 1) {
-                sb.append(",");
-            }
+            if (i != vector.length - 1) sb.append(",");
         }
 
         sb.append("]");
-
         return sb.toString();
     }
 }
