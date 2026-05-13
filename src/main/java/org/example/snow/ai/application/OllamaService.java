@@ -130,6 +130,22 @@ public class OllamaService {
         }
     }
 
+    public GeneratedQuizDraft generateQuiz(QuizGenerationPrompt prompt) {
+        try {
+            String rawContent = chatClient.prompt()
+                    .system(prompt.promptTemplate().systemPrompt())
+                    .user(buildQuizPrompt(prompt))
+                    .call()
+                    .content();
+
+            return parseGeneratedQuiz(rawContent, prompt.quizType());
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new BusinessException(ErrorCode.AI_RESPONSE_GENERATION_FAILED, exception);
+        }
+    }
+
     private String buildGroundedAnswerPrompt(AnswerGenerationCommand command) {
         String contextBlocks = command.sections().stream()
                 .map(RetrievedSection::toPromptBlock)
@@ -177,6 +193,57 @@ public class OllamaService {
         }
     }
 
+    private String buildQuizPrompt(QuizGenerationPrompt prompt) {
+        String contextBlocks = prompt.sections().stream()
+                .map(RetrievedSection::toPromptBlock)
+                .reduce((left, right) -> left + "\n\n---\n\n" + right)
+                .orElse("");
+
+        return prompt.promptTemplate().userPromptTemplate()
+                .replace("{scopeText}", prompt.scopeText())
+                .replace("{quizType}", prompt.quizType())
+                .replace("{difficulty}", prompt.difficulty())
+                .replace("{quizOrder}", Integer.toString(prompt.quizOrder()))
+                .replace("{contextSections}", contextBlocks)
+                .replace("{outputSchema}", prompt.promptTemplate().outputSchema());
+    }
+
+    private GeneratedQuizDraft parseGeneratedQuiz(String rawContent, String fallbackQuizType) {
+        if (!StringUtils.hasText(rawContent)) {
+            throw new BusinessException(ErrorCode.AI_RESPONSE_PARSING_FAILED);
+        }
+
+        String jsonContent = extractJsonPayload(rawContent);
+
+        try {
+            JsonNode payload = objectMapper.readTree(jsonContent);
+            if (payload.isArray()) {
+                if (payload.isEmpty()) {
+                    throw new IllegalArgumentException("생성된 문제 배열이 비어 있습니다.");
+                }
+                payload = payload.get(0);
+            }
+
+            String quizType = readOptionalText(payload, "quizType", "quiz_type");
+            String questionText = readRequiredText(payload, "questionText", "question_text", "question");
+            String choices = readChoices(payload.path("choices"));
+            String answer = readRequiredText(payload, "answer");
+            String explanation = readOptionalText(payload, "explanation");
+            List<Long> sourceSectionIds = readLongArray(payload, "sourceSectionIds", "source_section_ids");
+
+            return new GeneratedQuizDraft(
+                    StringUtils.hasText(quizType) ? quizType : fallbackQuizType,
+                    questionText,
+                    choices,
+                    answer,
+                    explanation,
+                    sourceSectionIds
+            );
+        } catch (JsonProcessingException | IllegalArgumentException exception) {
+            throw new BusinessException(ErrorCode.AI_RESPONSE_PARSING_FAILED, exception);
+        }
+    }
+
     private String extractJson(String rawContent) {
         String trimmed = rawContent.trim()
                 .replaceFirst("^```(?:json)?\\s*", "")
@@ -198,6 +265,84 @@ public class OllamaService {
             throw new IllegalArgumentException(fieldName + " 필드는 비어 있을 수 없습니다.");
         }
         return value.trim();
+    }
+
+    private String readRequiredText(JsonNode payload, String... fieldNames) {
+        String value = readOptionalText(payload, fieldNames);
+        if (!StringUtils.hasText(value)) {
+            throw new IllegalArgumentException(String.join("/", fieldNames) + " 필드는 비어 있을 수 없습니다.");
+        }
+        return value;
+    }
+
+    private String readOptionalText(JsonNode payload, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            JsonNode valueNode = payload.path(fieldName);
+            if (!valueNode.isMissingNode() && !valueNode.isNull() && StringUtils.hasText(valueNode.asText())) {
+                return valueNode.asText().trim();
+            }
+        }
+        return "";
+    }
+
+    private String readChoices(JsonNode choicesNode) throws JsonProcessingException {
+        if (choicesNode == null || choicesNode.isMissingNode() || choicesNode.isNull()) {
+            return "";
+        }
+        if (choicesNode.isArray() || choicesNode.isObject()) {
+            return objectMapper.writeValueAsString(choicesNode);
+        }
+        return choicesNode.asText("");
+    }
+
+    private List<Long> readLongArray(JsonNode payload, String... fieldNames) {
+        JsonNode arrayNode = null;
+        for (String fieldName : fieldNames) {
+            JsonNode candidate = payload.path(fieldName);
+            if (candidate.isArray()) {
+                arrayNode = candidate;
+                break;
+            }
+        }
+        if (arrayNode == null) {
+            return List.of();
+        }
+
+        return StreamSupport.stream(arrayNode.spliterator(), false)
+                .map(JsonNode::asText)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .map(this::parseLongOrNull)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private Long parseLongOrNull(String value) {
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private String extractJsonPayload(String rawContent) {
+        String trimmed = rawContent.trim()
+                .replaceFirst("^```(?:json)?\\s*", "")
+                .replaceFirst("\\s*```$", "");
+
+        int objectStart = trimmed.indexOf('{');
+        int objectEnd = trimmed.lastIndexOf('}');
+        int arrayStart = trimmed.indexOf('[');
+        int arrayEnd = trimmed.lastIndexOf(']');
+
+        if (arrayStart >= 0 && arrayEnd > arrayStart && (objectStart < 0 || arrayStart < objectStart)) {
+            return trimmed.substring(arrayStart, arrayEnd + 1);
+        }
+        if (objectStart >= 0 && objectEnd > objectStart) {
+            return trimmed.substring(objectStart, objectEnd + 1);
+        }
+        return trimmed;
     }
 
     private Stream<String> streamArray(JsonNode arrayNode) {

@@ -143,4 +143,59 @@ class OllamaServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("AI 응답을 해석하는 데 실패했습니다.");
     }
+
+    @Test
+    void generatesQuizFromRetrievedSections() {
+        ChatClient.Builder builder = mock(ChatClient.Builder.class);
+        ChatClient chatClient = mock(ChatClient.class);
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec responseSpec = mock(ChatClient.CallResponseSpec.class);
+
+        when(builder.build()).thenReturn(chatClient);
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.system(anyString())).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(responseSpec);
+        when(responseSpec.content()).thenReturn("""
+                {
+                  "quizType": "MULTIPLE_CHOICE",
+                  "questionText": "RAG의 의미로 가장 알맞은 것은?",
+                  "choices": ["검색 증강 생성", "정렬 알고리즘"],
+                  "answer": "검색 증강 생성",
+                  "explanation": "RAG는 검색된 문맥을 활용해 답변 품질을 높이는 방식입니다.",
+                  "sourceSectionIds": [100]
+                }
+                """);
+
+        OllamaService ollamaService = new OllamaService(builder, objectMapper);
+
+        GeneratedQuizDraft quiz = ollamaService.generateQuiz(new QuizGenerationPrompt(
+                "RAG 단원",
+                "MULTIPLE_CHOICE",
+                "중",
+                1,
+                java.util.List.of(new RetrievedSection(
+                        "100",
+                        "RAG",
+                        "RAG는 검색 증강 생성이다.",
+                        "lecture.pdf",
+                        1,
+                        1,
+                        1,
+                        0.95
+                )),
+                ResolvedPromptTemplate.fallback()
+        ));
+
+        ArgumentCaptor<String> userPrompt = ArgumentCaptor.forClass(String.class);
+        verify(requestSpec).user(userPrompt.capture());
+
+        assertThat(userPrompt.getValue()).contains("RAG 단원");
+        assertThat(userPrompt.getValue()).contains("sectionId: 100");
+        assertThat(quiz.quizType()).isEqualTo("MULTIPLE_CHOICE");
+        assertThat(quiz.questionText()).contains("RAG");
+        assertThat(quiz.choices()).contains("검색 증강 생성");
+        assertThat(quiz.answer()).isEqualTo("검색 증강 생성");
+        assertThat(quiz.sourceSectionIds()).containsExactly(100L);
+    }
 }
