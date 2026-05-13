@@ -22,3 +22,6 @@ docs/weekly
 
 # local env
 .env
+
+# 로컬 테스트를 위한 샘플 데이터
+sample/**
