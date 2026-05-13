@@ -55,6 +55,10 @@ public class Chunk {
     @Column(name = "source_indices", columnDefinition = "integer[]")
     private List<Integer> sourceIndices;
 
+    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Column(name = "embedding", columnDefinition = "vector(1024)")
+    private float[] embedding;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -73,6 +77,10 @@ public class Chunk {
 
     public static Chunk create(Section section, Document document, ExtractedChunk extracted) {
         return new Chunk(section, document, extracted);
+    }
+
+    public void updateEmbedding(float[] embedding) {
+        this.embedding = embedding;
     }
 
     public void softDelete() {

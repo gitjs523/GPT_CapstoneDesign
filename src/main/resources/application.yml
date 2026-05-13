@@ -10,13 +10,21 @@ spring:
       chat: ollama
       embedding: ollama
     ollama:
-      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      base-url: ${OLLAMA_CHAT_URL:http://localhost:11434}
       chat:
         options:
           model: ${OLLAMA_CHAT_MODEL:qwen3:4b-q4_K_M}
       embedding:
         options:
           model: ${OLLAMA_EMBEDDING_MODEL:qwen3-embedding:0.6b}
+
+ollama:
+  embedding:
+    url: ${OLLAMA_EMBEDDING_URL:http://localhost:11434}
+    model: ${OLLAMA_EMBEDDING_MODEL:qwen3-embedding:0.6b}
+    batch-size: ${OLLAMA_EMBEDDING_BATCH_SIZE:20}
+    connect-timeout-seconds: ${OLLAMA_EMBEDDING_CONNECT_TIMEOUT:5}
+    read-timeout-seconds: ${OLLAMA_EMBEDDING_READ_TIMEOUT:30}
 
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB}

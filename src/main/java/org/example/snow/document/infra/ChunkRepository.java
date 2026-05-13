@@ -13,6 +13,26 @@ public interface ChunkRepository extends JpaRepository<Chunk, Long> {
 
     List<Chunk> findByDocument_DocumentId(Long documentId);
 
+    @Query(value = """
+            SELECT c.chunk_id, c.content, c.section_id,
+                   c.embedding <=> CAST(:embedding AS vector) AS distance
+            FROM chunk c
+            JOIN section s ON c.section_id = s.section_id
+            JOIN document d ON c.document_id = d.document_id
+            WHERE c.deleted_at IS NULL
+              AND s.deleted_at IS NULL
+              AND d.deleted_at IS NULL
+              AND d.analysis_status = 'COMPLETED'
+              AND d.notebook_id = :notebookId
+            ORDER BY distance
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Object[]> findTopSimilarChunks(
+            @Param("embedding") String embedding,
+            @Param("notebookId") Long notebookId,
+            @Param("limit") int limit
+    );
+
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Chunk c SET c.deletedAt = :now WHERE c.document.documentId = :documentId AND c.deletedAt IS NULL")
     void softDeleteByDocumentId(@Param("documentId") Long documentId, @Param("now") LocalDateTime now);
