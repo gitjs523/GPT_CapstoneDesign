@@ -50,11 +50,17 @@ public class EmbeddingClient {
     }
 
     public float[] embed(String text) {
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("임베딩 대상 텍스트는 비어 있을 수 없습니다.");
+        }
         List<float[]> vectors = callEmbedApi(List.of(text));
         return vectors.get(0);
     }
 
     public List<float[]> embedAll(List<String> texts) {
+        if (texts == null || texts.isEmpty()) {
+            throw new IllegalArgumentException("임베딩 대상 텍스트 목록은 비어 있을 수 없습니다.");
+        }
         return callEmbedApi(texts);
     }
 

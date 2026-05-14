@@ -10,7 +10,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Disabled("Ollama 서버가 실행 중일 때만 수동으로 실행 (./gradlew test --tests *EmbeddingClientIntegrationTest)")
+// 수동 실행 시: @Disabled를 임시 제거 후 ./gradlew test --tests "*EmbeddingClientIntegrationTest" 실행
+// (--tests 플래그만으로는 @Disabled가 무시되지 않음)
+@Disabled("Ollama 서버가 실행 중일 때만 수동으로 실행")
 class EmbeddingClientIntegrationTest {
 
     private EmbeddingClient embeddingClient;
