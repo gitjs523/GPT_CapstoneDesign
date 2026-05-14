@@ -3,6 +3,7 @@ package org.example.snow.document.application;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.snow.ai.application.OllamaService;
+import org.example.snow.embedding.application.EmbeddingService;
 import org.example.snow.document.domain.Chunk;
 import org.example.snow.document.domain.Document;
 import org.example.snow.document.domain.ExtractedChunk;
@@ -14,8 +15,11 @@ import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.document.infra.DocumentRepository;
 import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.document.infra.SourceUnitRepository;
+import org.example.snow.global.exception.BusinessException;
+import org.example.snow.global.exception.ErrorCode;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -33,12 +37,13 @@ public class DocumentAnalysisService {
     private final ChunkRepository chunkRepository;
     private final DocumentIngestionService documentIngestionService;
     private final OllamaService ollamaService;
+    private final EmbeddingService embeddingService;
 
     @Async
     @Transactional
     public void analyzeAsync(Long documentId, DocumentUploadCommand command) {
         Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new IllegalStateException("Document not found: " + documentId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
         try {
             analyze(document, command);
         } catch (Exception e) {
@@ -54,9 +59,9 @@ public class DocumentAnalysisService {
 
         saveSourceUnits(document, result.extractedDocument());
         List<Section> savedSections = saveSections(document, result.sections());
-        saveChunks(document, savedSections, result.sections(), result.chunks());
+        List<Chunk> savedChunks = saveChunks(document, savedSections, result.sections(), result.chunks());
 
-        // TODO: Chunk 임베딩 생성 및 pgvector 저장 (임베딩 모델 연동 후 추가)
+        embeddingService.saveEmbeddings(savedChunks);
 
         String summaryText = ollamaService.generateSummary(buildSummaryInput(result.sections()));
         document.saveSummary(summaryText);
@@ -65,7 +70,7 @@ public class DocumentAnalysisService {
         documentRepository.save(document);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markFailed(Long documentId, String errorMessage) {
         documentRepository.findById(documentId).ifPresent(doc -> {
             doc.failAnalysis(errorMessage);
@@ -97,7 +102,7 @@ public class DocumentAnalysisService {
         return sectionRepository.saveAll(sections);
     }
 
-    private void saveChunks(
+    private List<Chunk> saveChunks(
             Document document,
             List<Section> savedSections,
             List<ExtractedSection> extractedSections,
@@ -109,8 +114,9 @@ public class DocumentAnalysisService {
                     return Chunk.create(parentSection, document, extractedChunk);
                 })
                 .toList();
-        chunkRepository.saveAll(chunks);
+        return chunkRepository.saveAll(chunks);
     }
+
 
     private Section findParentSection(
             List<Section> savedSections,
