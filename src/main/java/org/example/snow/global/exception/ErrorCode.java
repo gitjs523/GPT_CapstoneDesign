@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorCode {
     FILE_REQUIRED(HttpStatus.BAD_REQUEST, "DOC_001", "업로드할 파일이 필요합니다."),
+    FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "DOC_015", "파일 크기가 허용 범위를 초과했습니다. 최대 50MB까지 업로드할 수 있습니다."),
     UNSUPPORTED_DOCUMENT_TYPE(HttpStatus.BAD_REQUEST, "DOC_002", "지원하지 않는 파일 형식입니다. PDF, PPT, PPTX만 업로드할 수 있습니다."),
     PAGE_CHUNK_STRATEGY_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "DOC_003", "PAGE 청킹은 PDF 문서에서만 사용할 수 있습니다."),
     SLIDE_CHUNK_STRATEGY_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "DOC_004", "SLIDE 청킹은 PPT/PPTX 문서에서만 사용할 수 있습니다."),
