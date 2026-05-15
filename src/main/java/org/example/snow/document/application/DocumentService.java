@@ -14,6 +14,8 @@ import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.notebook.infra.NotebookRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -49,7 +51,13 @@ public class DocumentService {
                 (long) file.content().length
         );
         Document saved = documentRepository.save(document);
-        documentAnalysisService.analyzeAsync(saved.getDocumentId(), command);
+        Long savedId = saved.getDocumentId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                documentAnalysisService.analyzeAsync(savedId, command);
+            }
+        });
         return saved;
     }
 
