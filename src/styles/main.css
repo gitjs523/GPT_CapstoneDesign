@@ -697,11 +697,6 @@ body:not(.left-menu-open) .left-menu-toggle strong {
   border-color: rgba(0, 102, 204, 0.22);
 }
 
-.uploaded-files-panel.has-uploaded-files .uploaded-files-header h3::after {
-  content: " 완료";
-  color: var(--primary);
-}
-
 .uploaded-files-list {
   margin-top: 12px;
 }
@@ -739,6 +734,31 @@ body:not(.left-menu-open) .left-menu-toggle strong {
   word-break: break-all;
 }
 
+.uploaded-file-status {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.uploaded-file-status.is-analyzing,
+.uploaded-file-status.is-uploaded {
+  color: var(--primary);
+}
+
+.uploaded-file-status.is-completed {
+  color: #27803b;
+}
+
+.uploaded-file-status.is-failed {
+  color: #b73030;
+}
+
+.uploaded-file-status.is-cancelled {
+  color: #b73030;
+}
+
 .uploaded-file-remove {
   width: 28px;
   height: 28px;
@@ -748,10 +768,6 @@ body:not(.left-menu-open) .left-menu-toggle strong {
   color: #b73030;
   font-size: 18px;
   line-height: 1;
-}
-
-.uploaded-files-panel.has-uploaded-files .uploaded-files-header h3::after {
-  content: " \C644\B8CC";
 }
 
 .result-card {

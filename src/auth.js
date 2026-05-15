@@ -24,6 +24,10 @@ const signupFeedback = document.querySelector("#signup-feedback");
 const signupResult = document.querySelector("#signup-result");
 const signupSubmit = document.querySelector("#signup-submit");
 
+const API_BASE_URL = "http://3.37.6.60:8080";
+const ACCESS_TOKEN_STORAGE_KEY = "snow.accessToken";
+const USER_EMAIL_STORAGE_KEY = "snow.userEmail";
+
 // TODO(back-end): 비밀번호 재설정에서는 서버에 이메일 존재 여부를 확인해야 하므로 이 목업 목록을 제거하세요.
 const mockRegisteredEmails = ["snow@example.com", "student@example.com", "team@snow.ai"];
 const USER_NAME_STORAGE_KEY = "snow.userName";
@@ -113,7 +117,7 @@ function updateForgotState() {
 
   const email = forgotEmail.value.trim();
   const validEmail = isValidEmail(email);
-  // TODO(back-end): 실제 서비스에서는 클라이언트에서 가입 이메일 목록을 들고 있지 말고 서버 검증 응답을 사용하세요.
+  // TODO(back-end): 실제 서비스에서는 클라이언트에 가입 이메일 목록을 두지 말고 서버 검증 응답을 사용하세요.
   const existsEmail = mockRegisteredEmails.includes(email.toLowerCase());
   const hasLongEnoughPassword = forgotPassword.value.length >= 8;
   const includesSpecialCharacter = hasSpecialCharacter(forgotPassword.value);
@@ -189,6 +193,56 @@ function resetSignupForm() {
   updateSignupState();
 }
 
+function setSubmitting(button, isSubmitting, submittingText, defaultText) {
+  if (!button) {
+    return;
+  }
+
+  button.disabled = isSubmitting;
+  button.textContent = isSubmitting ? submittingText : defaultText;
+}
+
+async function requestAuth(path, payload) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const message = data?.message || data?.error || "요청을 처리하지 못했습니다.";
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+
+  return data;
+}
+
+function saveAuthSession(data, fallbackName) {
+  if (data?.accessToken) {
+    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, data.accessToken);
+  }
+
+  if (data?.email) {
+    localStorage.setItem(USER_EMAIL_STORAGE_KEY, data.email);
+  }
+
+  const displayName = fallbackName || data?.email || "";
+  if (displayName) {
+    localStorage.setItem(USER_NAME_STORAGE_KEY, displayName);
+  }
+}
+
 authTabs.forEach((tab) => {
   tab.addEventListener("click", () => setActiveAuthPanel(tab.dataset.authTarget));
 });
@@ -219,49 +273,6 @@ forgotBack?.addEventListener("click", () => {
   field?.addEventListener("input", updateForgotState);
 });
 
-signupForm?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  clearSignupResult();
-  updateSignupState();
-
-  if (signupSubmit?.disabled) {
-    showSignupResult("입력 조건을 먼저 충족한 뒤 다시 시도하세요.", "error");
-    setActiveAuthPanel("signup-panel");
-    return;
-  }
-
-  // BACKEND_AUTH_HOOK: 회원가입 연동 위치입니다.
-  // BACKEND_AUTH_HOOK: POST /api/auth/signup에 name, email, password를 전송하고 서버 응답으로 성공/실패를 분기하세요.
-  const shouldSucceed = signupEmail?.value.trim().toLowerCase() !== "fail@example.com";
-
-  if (shouldSucceed) {
-    const submittedEmail = signupEmail?.value.trim() ?? "";
-    const submittedName = signupName?.value.trim() ?? "";
-    if (submittedName) {
-      // BACKEND_AUTH_HOOK: 회원가입/로그인 응답의 사용자 프로필 저장 방식으로 교체하세요.
-      localStorage.setItem(USER_NAME_STORAGE_KEY, submittedName);
-    }
-    showSignupResult("회원가입이 완료되었습니다. 로그인 탭에서 로그인하세요.", "success");
-    setActiveAuthPanel("login-panel");
-    if (loginEmail) {
-      loginEmail.value = submittedEmail;
-      updateLoginState();
-    }
-    resetSignupForm();
-    return;
-  }
-
-  showSignupResult("회원가입에 실패했습니다. 입력 정보를 확인하고 다시 시도하세요.", "error");
-  setActiveAuthPanel("signup-panel");
-});
-
-loginForm?.addEventListener("submit", () => {
-  // BACKEND_AUTH_HOOK: 로그인 연동 위치입니다.
-  // BACKEND_AUTH_HOOK: 이 submit 핸들러에서 event.preventDefault()를 추가한 뒤 POST /api/auth/login에 email/password를 전송하세요.
-  // BACKEND_AUTH_HOOK: 성공 시 access token 또는 session cookie를 저장하고 index.html로 이동하세요.
-  // BACKEND_AUTH_HOOK: 실패 시 loginFeedback에 서버 오류 메시지를 표시하고 페이지 이동을 막으세요.
-});
-
 forgotForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   updateForgotState();
@@ -277,7 +288,79 @@ forgotForm?.addEventListener("submit", (event) => {
   forgotFeedback.classList.remove("is-error");
 });
 
+signupForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  clearSignupResult();
+  updateSignupState();
+
+  if (signupSubmit?.disabled) {
+    showSignupResult("입력 조건을 확인하고 다시 시도하세요.", "error");
+    setActiveAuthPanel("signup-panel");
+    return;
+  }
+
+  const submittedEmail = signupEmail?.value.trim() ?? "";
+  const submittedName = signupName?.value.trim() ?? "";
+
+  setSubmitting(signupSubmit, true, "가입 중...", "회원가입");
+
+  try {
+    const data = await requestAuth("/api/auth/signup", {
+      email: submittedEmail,
+      password: signupPassword?.value ?? ""
+    });
+
+    saveAuthSession(data, submittedName || submittedEmail);
+    showSignupResult("회원가입이 완료되었습니다. 로그인 상태로 이동합니다.", "success");
+    window.location.href = "./index.html";
+  } catch (error) {
+    showSignupResult(error.message || "회원가입에 실패했습니다. 입력 정보를 확인하고 다시 시도하세요.", "error");
+    setActiveAuthPanel("signup-panel");
+  } finally {
+    setSubmitting(signupSubmit, false, "가입 중...", "회원가입");
+  }
+}, { capture: true });
+
+loginForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  updateLoginState();
+
+  if (loginSubmit?.disabled) {
+    return;
+  }
+
+  const email = loginEmail?.value.trim() ?? "";
+  const defaultLoginButtonText = loginSubmit?.textContent || "로그인";
+  setSubmitting(loginSubmit, true, "로그인 중...", "로그인");
+
+  try {
+    const data = await requestAuth("/api/auth/login", {
+      email,
+      password: loginPassword?.value ?? ""
+    });
+
+    saveAuthSession(data, email);
+    window.location.href = "./index.html";
+  } catch (error) {
+    if (loginFeedback) {
+      loginFeedback.textContent = error.status === 401
+        ? "비밀번호를 다시 입력하세요."
+        : error.message || "로그인에 실패했습니다. 이메일과 비밀번호를 확인하세요.";
+      loginFeedback.classList.add("is-error");
+      loginFeedback.classList.remove("is-valid");
+    }
+  } finally {
+    if (loginSubmit) {
+      loginSubmit.disabled = false;
+      loginSubmit.textContent = defaultLoginButtonText;
+    }
+  }
+}, { capture: true });
+
 updateLoginState();
 updateSignupState();
 updateForgotState();
 clearSignupResult();
+

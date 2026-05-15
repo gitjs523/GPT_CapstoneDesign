@@ -40,11 +40,19 @@ const logoutButton = document.querySelector("#logout-button");
 
 const NOTEBOOK_STORAGE_KEY = "snow.notebooks";
 const USER_NAME_STORAGE_KEY = "snow.userName";
+const ACCESS_TOKEN_STORAGE_KEY = "snow.accessToken";
+const USER_EMAIL_STORAGE_KEY = "snow.userEmail";
+const API_BASE_URL = "http://3.37.6.60:8080";
+const AUTH_HEADER_NAME = "Authorization";
+const DOCUMENT_STATUS_POLL_INTERVAL_MS = 3000;
+const DOCUMENT_STATUS_MAX_ATTEMPTS = 100;
 const defaultOutput = "아직 생성된 결과가 없습니다. 아래 입력창에 요청을 작성하고 실행해보세요.";
 const samplePrompt =
   "운영체제 교착상태 개념 위주로 객관식 5문항을 생성하고, 각 문항마다 정답과 짧은 해설을 함께 보여줘.";
 
 let uploadedDocumentNames = [];
+let uploadedDocuments = [];
+const cancelledDocumentAnalysisIds = new Set();
 let uploadAnalysisTimerId = null;
 let promptHistory = [];
 let currentNotebookId = createNotebookId();
@@ -59,9 +67,11 @@ function renderWelcomeMessage() {
   }
 
   // BACKEND_AUTH_HOOK: 로그인 API가 사용자 프로필을 반환하면 localStorage 대신 서버 세션/JWT 검증 결과의 name 값을 사용하세요.
+  const accessToken = localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)?.trim();
   const userName = localStorage.getItem(USER_NAME_STORAGE_KEY)?.trim();
+  const userEmail = localStorage.getItem(USER_EMAIL_STORAGE_KEY)?.trim();
 
-  if (!userName) {
+  if (!accessToken) {
     welcomeMessage.hidden = true;
     welcomeMessage.textContent = "";
     if (loginLink) {
@@ -73,7 +83,7 @@ function renderWelcomeMessage() {
     return;
   }
 
-  welcomeMessage.textContent = `${userName}님 환영합니다!`;
+  welcomeMessage.textContent = `${userName || userEmail || "User"}님 환영합니다`;
   welcomeMessage.hidden = false;
   if (loginLink) {
     loginLink.hidden = true;
@@ -83,11 +93,89 @@ function renderWelcomeMessage() {
   }
 }
 
-function logoutUser() {
-  // BACKEND_AUTH_HOOK: 실제 로그아웃 연동 시 POST /api/auth/logout 호출 후 서버 세션/토큰을 폐기하세요.
-  // BACKEND_AUTH_HOOK: JWT를 localStorage/sessionStorage에 저장한다면 여기서 토큰도 함께 삭제하세요.
+function clearAuthSession() {
+  localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(USER_EMAIL_STORAGE_KEY);
   localStorage.removeItem(USER_NAME_STORAGE_KEY);
   renderWelcomeMessage();
+}
+
+function buildAuthHeaders(headers = {}, accessToken = localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)) {
+  const nextHeaders = new Headers(headers);
+
+  if (accessToken) {
+    nextHeaders.set(AUTH_HEADER_NAME, `Bearer ${accessToken}`);
+  }
+
+  return nextHeaders;
+}
+
+async function refreshAccessToken() {
+  const accessToken = localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+
+  if (!accessToken) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    method: "POST",
+    headers: buildAuthHeaders({}, accessToken)
+  });
+
+  if (!response.ok) {
+    clearAuthSession();
+    throw new Error("로그인 시간이 만료되었습니다. 다시 로그인하세요.");
+  }
+
+  const data = await response.json();
+  if (!data?.accessToken) {
+    clearAuthSession();
+    throw new Error("새 accessToken을 받지 못했습니다.");
+  }
+
+  localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, data.accessToken);
+  return data.accessToken;
+}
+
+async function authFetch(path, options = {}) {
+  const requestUrl = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  const requestOptions = {
+    ...options,
+    headers: buildAuthHeaders(options.headers)
+  };
+
+  let response = await fetch(requestUrl, requestOptions);
+
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const refreshedAccessToken = await refreshAccessToken();
+
+  response = await fetch(requestUrl, {
+    ...options,
+    headers: buildAuthHeaders(options.headers, refreshedAccessToken)
+  });
+
+  if (response.status === 401) {
+    clearAuthSession();
+  }
+
+  return response;
+}
+
+async function logoutUser() {
+  // BACKEND_AUTH_HOOK: 실제 로그아웃 연동 시 POST /api/auth/logout 호출 후 서버 세션/토큰을 폐기하세요.
+  // BACKEND_AUTH_HOOK: JWT를 localStorage/sessionStorage에 저장한다면 여기서 토큰도 함께 삭제하세요.
+  try {
+    await authFetch("/api/auth/logout", {
+      method: "POST"
+    });
+  } catch (error) {
+    console.warn("Logout request failed.", error);
+  } finally {
+    clearAuthSession();
+  }
 }
 
 function setLeftMenuOpen(isOpen) {
@@ -106,6 +194,88 @@ function createNotebookId() {
   return `notebook-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function isServerNotebookId(notebookId) {
+  return /^\d+$/.test(String(notebookId));
+}
+
+function normalizeServerNotebook(notebook, cachedNotebook = {}) {
+  const id = String(notebook.notebookId);
+
+  return {
+    ...cachedNotebook,
+    id,
+    notebookId: notebook.notebookId,
+    title: notebook.title || cachedNotebook.title || "Untitled Project",
+    createdAt: notebook.createdAt || cachedNotebook.createdAt,
+    updatedAt: notebook.updatedAt || cachedNotebook.updatedAt || new Date().toISOString()
+  };
+}
+
+function normalizeServerDocument(document) {
+  return {
+    documentId: document.documentId,
+    notebookId: document.notebookId,
+    originalFileName: document.originalFileName,
+    fileType: document.fileType,
+    fileSize: document.fileSize,
+    pageCount: document.pageCount,
+    analysisStatus: document.analysisStatus,
+    uploadedAt: document.uploadedAt
+  };
+}
+
+function syncUploadedDocumentNames() {
+  uploadedDocumentNames = uploadedDocuments
+    .map((document) => document.originalFileName)
+    .filter(Boolean);
+}
+
+function getDocumentStatusLabel(document) {
+  if (!document) {
+    return "";
+  }
+
+  if (document.analysisStatus === "COMPLETED") {
+    return "분석 완료";
+  }
+
+  if (document.analysisStatus === "FAILED") {
+    return "분석 실패";
+  }
+
+  if (document.analysisStatus === "CANCELLED") {
+    return "문서 분석이 중단되었습니다.";
+  }
+
+  if (document.analysisStatus === "UPLOADED") {
+    return "분석 대기";
+  }
+
+  if (document.analysisStatus === "ANALYZING") {
+    return `분석 중 ${document.analysisProgress ?? 1}%`;
+  }
+
+  return "";
+}
+
+function getDocumentStatusClass(document) {
+  if (!document?.analysisStatus) {
+    return "";
+  }
+
+  return `is-${document.analysisStatus.toLowerCase()}`;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function createAnalysisCancelledError(fileLabel) {
+  const error = new Error(`${fileLabel} 문서 분석이 중단되었습니다.`);
+  error.name = "AnalysisCancelledError";
+  return error;
+}
+
 function getSavedNotebooks() {
   try {
     // TODO(back-end): GET /api/notebooks 응답으로 Notebook 목록을 가져오면 localStorage 저장소를 대체하세요.
@@ -118,6 +288,60 @@ function getSavedNotebooks() {
 function setSavedNotebooks(notebooks) {
   // TODO(back-end): POST/PUT/DELETE /api/notebooks 연동 후에는 이 localStorage 임시 저장을 제거하세요.
   localStorage.setItem(NOTEBOOK_STORAGE_KEY, JSON.stringify(notebooks));
+}
+
+function upsertSavedNotebook(notebook) {
+  const notebooks = getSavedNotebooks();
+  const existingIndex = notebooks.findIndex((item) => item.id === notebook.id);
+
+  if (existingIndex >= 0) {
+    notebooks[existingIndex] = {
+      ...notebooks[existingIndex],
+      ...notebook
+    };
+  } else {
+    notebooks.unshift(notebook);
+  }
+
+  setSavedNotebooks(notebooks);
+  return notebooks;
+}
+
+async function syncNotebookList() {
+  if (!localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)) {
+    renderNotebookOptions();
+    return;
+  }
+
+  try {
+    const response = await authFetch("/api/notebooks");
+
+    if (!response.ok) {
+      throw new Error("Notebook 목록을 불러오지 못했습니다.");
+    }
+
+    const serverNotebooks = await response.json();
+    const cachedNotebooks = getSavedNotebooks();
+    const serverNotebookIds = new Set(serverNotebooks.map((serverNotebook) => String(serverNotebook.notebookId)));
+    const syncedNotebooks = serverNotebooks.map((serverNotebook) => {
+      const cachedNotebook = cachedNotebooks.find((item) => item.id === String(serverNotebook.notebookId));
+      return normalizeServerNotebook(serverNotebook, cachedNotebook);
+    });
+    const localOnlyNotebooks = cachedNotebooks.filter((notebook) => !serverNotebookIds.has(String(notebook.id)));
+    const notebooks = [...syncedNotebooks, ...localOnlyNotebooks];
+
+    setSavedNotebooks(notebooks);
+
+    if (!notebooks.some((notebook) => notebook.id === currentNotebookId) && notebooks.length > 0) {
+      currentNotebookId = notebooks[0].id;
+    }
+
+    renderNotebookOptions();
+  } catch (error) {
+    console.warn("Notebook sync failed.", error);
+    renderNotebookOptions();
+    setNotebookStatus(error.message || "Notebook 목록 동기화에 실패했습니다.");
+  }
 }
 
 function setNotebookStatus(message) {
@@ -292,15 +516,22 @@ function renderUploadedFiles() {
 
   uploadedFilesList.innerHTML = uploadedDocumentNames
     .map(
-      (name, index) => `
+      (name, index) => {
+        const document = uploadedDocuments[index];
+        const statusLabel = getDocumentStatusLabel(document);
+        const statusClass = getDocumentStatusClass(document);
+
+        return `
         <article class="uploaded-file-item">
           <div class="uploaded-file-main">
             <span class="uploaded-file-index">${index + 1}</span>
             <span class="uploaded-file-name">${name}</span>
+            ${statusLabel ? `<span class="uploaded-file-status ${statusClass}">${statusLabel}</span>` : ""}
           </div>
           <button type="button" class="uploaded-file-remove" data-file-index="${index}" aria-label="${name} 삭제" title="삭제">x</button>
         </article>
-      `
+      `;
+      }
     )
     .join("");
 
@@ -309,8 +540,82 @@ function renderUploadedFiles() {
   });
 }
 
+function updateUploadedDocumentStatus(documentId, statusData) {
+  const documentIndex = uploadedDocuments.findIndex((document) => document.documentId === documentId);
+
+  if (documentIndex < 0) {
+    return;
+  }
+
+  uploadedDocuments[documentIndex] = {
+    ...uploadedDocuments[documentIndex],
+    analysisStatus: statusData.analysisStatus,
+    analysisProgress: statusData.analysisStatus === "COMPLETED"
+      ? 100
+      : uploadedDocuments[documentIndex].analysisProgress,
+    summaryText: statusData.summaryText ?? uploadedDocuments[documentIndex].summaryText
+  };
+
+  renderUploadedFiles();
+  upsertSavedNotebook(collectNotebookState());
+}
+
+async function pollDocumentAnalysisStatus(notebookId, documentId, fileLabel) {
+  for (let attempt = 0; attempt < DOCUMENT_STATUS_MAX_ATTEMPTS; attempt += 1) {
+    if (cancelledDocumentAnalysisIds.has(documentId)) {
+      throw createAnalysisCancelledError(fileLabel);
+    }
+
+    await wait(DOCUMENT_STATUS_POLL_INTERVAL_MS);
+
+    if (cancelledDocumentAnalysisIds.has(documentId)) {
+      throw createAnalysisCancelledError(fileLabel);
+    }
+
+    const response = await authFetch(`/api/notebooks/${notebookId}/documents/${documentId}/status`);
+
+    if (!response.ok) {
+      throw new Error(`${fileLabel} 분석 상태를 확인하지 못했습니다.`);
+    }
+
+    const statusData = await response.json();
+    updateUploadedDocumentStatus(documentId, statusData);
+
+    if (statusData.analysisStatus === "COMPLETED") {
+      return statusData;
+    }
+
+    if (statusData.analysisStatus === "FAILED") {
+      uploadedDocuments = uploadedDocuments.filter((document) => document.documentId !== documentId);
+      syncUploadedDocumentNames();
+      renderUploadedFiles();
+      upsertSavedNotebook(collectNotebookState());
+      throw new Error(`${fileLabel} 문서 분석에 실패했습니다.`);
+    }
+
+    const progressPercent = Math.min(
+      99,
+      Math.round(((attempt + 1) / DOCUMENT_STATUS_MAX_ATTEMPTS) * 100)
+    );
+    const documentIndex = uploadedDocuments.findIndex((document) => document.documentId === documentId);
+    if (documentIndex >= 0) {
+      uploadedDocuments[documentIndex] = {
+        ...uploadedDocuments[documentIndex],
+        analysisStatus: "ANALYZING",
+        analysisProgress: progressPercent
+      };
+      renderUploadedFiles();
+      upsertSavedNotebook(collectNotebookState());
+    }
+    setUploadState("loading", `${fileLabel} 분석 중 ${progressPercent}%`);
+  }
+
+  throw new Error(`${fileLabel} 분석 시간이 초과되었습니다.`);
+}
+
 function updateEmptyUploadState() {
   uploadedDocumentNames = [];
+  uploadedDocuments = [];
   if (fileName) {
     fileName.textContent = "PDF, PPT, PPTX 여러 개 업로드";
   }
@@ -323,27 +628,51 @@ function updateEmptyUploadState() {
   }
 }
 
-function removeUploadedFile(index) {
+async function removeUploadedFile(index) {
   if (Number.isNaN(index) || index < 0 || index >= uploadedDocumentNames.length) {
     return;
   }
 
-  uploadedDocumentNames.splice(index, 1);
-  renderUploadedFiles();
+  const document = uploadedDocuments[index];
+  const removedFileName = uploadedDocumentNames[index];
 
-  if (uploadedDocumentNames.length === 0) {
-    if (uploadAnalysisTimerId) {
-      window.clearTimeout(uploadAnalysisTimerId);
-      uploadAnalysisTimerId = null;
-    }
-    updateEmptyUploadState();
-    return;
+  if (document?.documentId) {
+    cancelledDocumentAnalysisIds.add(document.documentId);
   }
 
-  fileName.textContent = formatUploadedFileLabel();
-  setUploadState("done", `${uploadedDocumentNames.length}개 문서 분석 완료`);
-  jobStatusMessage.textContent = "업로드 문서 목록이 갱신되었습니다.";
-  generateButton.disabled = false;
+  if (document) {
+    uploadedDocuments[index] = {
+      ...document,
+      analysisStatus: "CANCELLED",
+      analysisProgress: null
+    };
+  }
+  renderUploadedFiles();
+  upsertSavedNotebook(collectNotebookState());
+
+  if (document?.documentId && isServerNotebookId(currentNotebookId)) {
+    try {
+      const response = await authFetch(`/api/notebooks/${currentNotebookId}/documents/${document.documentId}`, {
+        method: "DELETE"
+      });
+
+      if (!response.ok) {
+        throw new Error(`${removedFileName} 서버 삭제에 실패했습니다.`);
+      }
+
+      jobStatusMessage.textContent = `${removedFileName} 문서 분석을 중단하고 삭제했습니다.`;
+    } catch (error) {
+      jobStatusMessage.textContent = error.message || `${removedFileName} 삭제에 실패했습니다. 서버 분석이 계속될 수 있습니다.`;
+    }
+  } else {
+    jobStatusMessage.textContent = `${removedFileName} 문서를 목록에서 제거했습니다.`;
+  }
+
+  if (uploadedDocumentNames.length > 0) {
+    fileName.textContent = formatUploadedFileLabel();
+    setUploadState("done", `${uploadedDocumentNames.length}개 문서`);
+    generateButton.disabled = false;
+  }
 }
 
 function renderResultCards(type, count, level) {
@@ -419,6 +748,7 @@ function collectNotebookState() {
     title: notebookTitle?.textContent.trim() || "Untitled Project",
     updatedAt: new Date().toISOString(),
     uploadedDocumentNames: [...uploadedDocumentNames],
+    uploadedDocuments: [...uploadedDocuments],
     promptHistory: [...promptHistory],
     quizSettings: {
       questionType: questionType.value,
@@ -439,6 +769,8 @@ function resetWorkspaceState(title = "") {
 
   currentNotebookId = createNotebookId();
   promptHistory = [];
+  uploadedDocuments = [];
+  uploadedDocumentNames = [];
   if (notebookTitle) {
     notebookTitle.textContent = title;
   }
@@ -459,22 +791,40 @@ function resetWorkspaceState(title = "") {
   resultCards.innerHTML = getDefaultResultCardMarkup();
 }
 
-function saveCurrentNotebook() {
+async function saveCurrentNotebook() {
   const notebook = collectNotebookState();
-  const notebooks = getSavedNotebooks();
-  const existingIndex = notebooks.findIndex((item) => item.id === notebook.id);
+  const hasServerNotebook = isServerNotebookId(notebook.id);
+  const requestPath = hasServerNotebook ? `/api/notebooks/${notebook.id}` : "/api/notebooks";
+  const requestMethod = hasServerNotebook ? "PATCH" : "POST";
 
-  // TODO(back-end): 새 Notebook이면 POST /api/notebooks, 기존 Notebook이면 PUT /api/notebooks/{id}로 저장하세요.
-  // TODO(back-end): 서버가 발급한 notebookId를 currentNotebookId와 저장 목록에 반영하세요.
-  if (existingIndex >= 0) {
-    notebooks[existingIndex] = notebook;
-  } else {
-    notebooks.unshift(notebook);
+  setNotebookStatus(`"${notebook.title}" Notebook을 저장하는 중입니다.`);
+
+  try {
+    const response = await authFetch(requestPath, {
+      method: requestMethod,
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ title: notebook.title })
+    });
+
+    if (!response.ok) {
+      throw new Error("Notebook 저장에 실패했습니다.");
+    }
+
+    const serverNotebook = await response.json();
+    const savedNotebook = normalizeServerNotebook(serverNotebook, notebook);
+    currentNotebookId = savedNotebook.id;
+    upsertSavedNotebook(savedNotebook);
+    renderNotebookOptions();
+    setNotebookStatus(`"${savedNotebook.title}" Notebook을 저장했습니다.`);
+    return savedNotebook;
+  } catch (error) {
+    upsertSavedNotebook(notebook);
+    renderNotebookOptions();
+    setNotebookStatus(error.message || "Notebook 저장에 실패했습니다. 임시 저장만 완료했습니다.");
+    return null;
   }
-
-  setSavedNotebooks(notebooks);
-  renderNotebookOptions();
-  setNotebookStatus(`"${notebook.title}" Notebook을 저장했습니다.`);
 }
 
 function loadNotebook(notebookId) {
@@ -487,7 +837,10 @@ function loadNotebook(notebookId) {
   }
 
   currentNotebookId = notebook.id;
-  uploadedDocumentNames = [...(notebook.uploadedDocumentNames ?? [])];
+  uploadedDocuments = [...(notebook.uploadedDocuments ?? [])];
+  uploadedDocumentNames = uploadedDocuments.length > 0
+    ? uploadedDocuments.map((document) => document.originalFileName).filter(Boolean)
+    : [...(notebook.uploadedDocumentNames ?? [])];
   promptHistory = [...(notebook.promptHistory ?? [])];
   notebookTitle.textContent = notebook.title;
   promptInput.value = notebook.prompt ?? "";
@@ -511,7 +864,7 @@ function loadNotebook(notebookId) {
   setNotebookStatus(`"${notebook.title}" Notebook을 불러왔습니다.`);
 }
 
-function deleteSelectedNotebook() {
+async function deleteSelectedNotebook() {
   const notebookId = notebookSelect?.value;
 
   if (!notebookId) {
@@ -525,13 +878,26 @@ function deleteSelectedNotebook() {
     return;
   }
 
-  // TODO(back-end): DELETE /api/notebooks/{notebookId} 성공 후 목록을 다시 조회하거나 현재처럼 UI 목록에서 제거하세요.
-  setSavedNotebooks(getSavedNotebooks().filter((item) => item.id !== notebookId));
-  renderNotebookOptions();
-  if (currentNotebookId === notebookId) {
-    currentNotebookId = createNotebookId();
+  try {
+    if (isServerNotebookId(notebookId)) {
+      const response = await authFetch(`/api/notebooks/${notebookId}`, {
+        method: "DELETE"
+      });
+
+      if (!response.ok) {
+        throw new Error("Notebook 삭제에 실패했습니다.");
+      }
+    }
+
+    setSavedNotebooks(getSavedNotebooks().filter((item) => item.id !== notebookId));
+    renderNotebookOptions();
+    if (currentNotebookId === notebookId) {
+      currentNotebookId = createNotebookId();
+    }
+    setNotebookStatus(`"${notebook.title}" Notebook을 삭제했습니다.`);
+  } catch (error) {
+    setNotebookStatus(error.message || "Notebook 삭제에 실패했습니다.");
   }
-  setNotebookStatus(`"${notebook.title}" Notebook을 삭제했습니다.`);
 }
 
 function openQuizSettings() {
@@ -599,7 +965,7 @@ leftMenuToggle?.addEventListener("click", () => {
   setLeftMenuOpen(leftMenuToggle.getAttribute("aria-expanded") !== "true");
 });
 
-function handleSelectedDocumentFiles(files) {
+async function handleSelectedDocumentFiles(files) {
   const selectedFiles = [...files].filter(isAllowedDocumentFile);
 
   if (selectedFiles.length === 0) {
@@ -611,32 +977,79 @@ function handleSelectedDocumentFiles(files) {
     return;
   }
 
-  selectedFiles.forEach((file) => {
-    if (!uploadedDocumentNames.includes(file.name)) {
-      uploadedDocumentNames.push(file.name);
-    }
-  });
+  if (!isServerNotebookId(currentNotebookId)) {
+    const savedNotebook = await saveCurrentNotebook();
 
-  fileName.textContent = formatUploadedFileLabel();
-  renderUploadedFiles();
-  // TODO(back-end): POST /api/documents/upload에 selectedFiles를 FormData로 전송하세요.
-  // TODO(back-end): 서버가 반환한 documentId/jobId를 파일명과 함께 저장해 퀴즈 생성 요청에 사용하세요.
-  setUploadState("loading", `${uploadedDocumentNames.length}개 문서 분석 중`);
-  jobStatusMessage.textContent = "문서를 업로드했습니다. 분석이 완료되면 실행할 수 있습니다.";
+    if (!savedNotebook || !isServerNotebookId(currentNotebookId)) {
+      jobStatusMessage.textContent = "문서를 업로드하려면 Notebook을 먼저 저장해야 합니다.";
+      setUploadState("idle", "Notebook 저장 필요");
+      fileInput.value = "";
+      return;
+    }
+  }
+
+  setUploadState("loading", `${selectedFiles.length}개 문서 업로드 중`);
+  jobStatusMessage.textContent = "문서를 서버에 업로드하는 중입니다.";
   generateButton.disabled = true;
   fileInput.value = "";
 
   if (uploadAnalysisTimerId) {
     window.clearTimeout(uploadAnalysisTimerId);
+    uploadAnalysisTimerId = null;
   }
 
-  // TODO(back-end): 아래 setTimeout 목업을 GET /api/documents/{documentId}/analysis-status polling 또는 SSE/WebSocket으로 교체하세요.
-  uploadAnalysisTimerId = window.setTimeout(() => {
+  try {
+    for (const file of selectedFiles) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await authFetch(`/api/notebooks/${currentNotebookId}/documents`, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`${file.name} 업로드에 실패했습니다.`);
+      }
+
+      const document = normalizeServerDocument(await response.json());
+      document.analysisProgress = document.analysisStatus === "COMPLETED" ? 100 : 0;
+      const existingIndex = uploadedDocuments.findIndex((item) => item.documentId === document.documentId);
+
+      if (existingIndex >= 0) {
+        uploadedDocuments[existingIndex] = document;
+      } else {
+        uploadedDocuments.push(document);
+      }
+
+      syncUploadedDocumentNames();
+      fileName.textContent = formatUploadedFileLabel();
+      renderUploadedFiles();
+      upsertSavedNotebook(collectNotebookState());
+
+      setUploadState("loading", `${document.originalFileName || file.name} 분석 대기 중`);
+      jobStatusMessage.textContent = `${document.originalFileName || file.name} 문서 분석 완료를 기다리는 중입니다.`;
+      await pollDocumentAnalysisStatus(
+        currentNotebookId,
+        document.documentId,
+        document.originalFileName || file.name
+      );
+    }
+
+    syncUploadedDocumentNames();
+    fileName.textContent = formatUploadedFileLabel();
+    renderUploadedFiles();
+    upsertSavedNotebook(collectNotebookState());
     setUploadState("done", `${uploadedDocumentNames.length}개 문서 분석 완료`);
     jobStatusMessage.textContent = "문서 분석이 완료되었습니다. 이제 실행 버튼을 사용할 수 있습니다.";
-    generateButton.disabled = false;
-    uploadAnalysisTimerId = null;
-  }, 1200);
+    generateButton.disabled = uploadedDocumentNames.length === 0;
+  } catch (error) {
+    syncUploadedDocumentNames();
+    renderUploadedFiles();
+    setUploadState(uploadedDocumentNames.length > 0 ? "done" : "idle", error.message || "문서 업로드에 실패했습니다.");
+    jobStatusMessage.textContent = error.message || "문서 업로드에 실패했습니다.";
+    generateButton.disabled = uploadedDocumentNames.length === 0;
+  }
 }
 
 fileInput?.addEventListener("change", (event) => {
@@ -698,6 +1111,6 @@ updateEmptyUploadState();
 renderUploadedFiles();
 renderHistory();
 syncSettingButtons();
-renderNotebookOptions();
 renderWelcomeMessage();
+syncNotebookList();
 setLeftMenuOpen(false);
