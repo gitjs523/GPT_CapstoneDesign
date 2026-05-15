@@ -7,11 +7,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface SectionRepository extends JpaRepository<Section, Long> {
 
     List<Section> findAllByDocument_DocumentIdAndDeletedAtIsNullOrderBySectionOrderAsc(Long documentId);
+
+    List<Section> findAllBySectionIdInAndDeletedAtIsNull(Collection<Long> sectionIds);
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Section s SET s.deletedAt = :now WHERE s.document.documentId = :documentId AND s.deletedAt IS NULL")

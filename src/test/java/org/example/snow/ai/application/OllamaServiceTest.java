@@ -1,10 +1,15 @@
 package org.example.snow.ai.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.snow.ai.domain.GeneratedQuiz;
+import org.example.snow.ai.domain.GenerationJob;
 import org.example.snow.global.exception.BusinessException;
+import org.example.snow.notebook.domain.Notebook;
+import org.example.snow.user.domain.UserAccount;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -142,5 +147,141 @@ class OllamaServiceTest {
         )))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("AI 응답을 해석하는 데 실패했습니다.");
+    }
+
+    @Test
+    void generatesQuizFromRetrievedSections() {
+        ChatClient.Builder builder = mock(ChatClient.Builder.class);
+        ChatClient chatClient = mock(ChatClient.class);
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec responseSpec = mock(ChatClient.CallResponseSpec.class);
+
+        when(builder.build()).thenReturn(chatClient);
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.system(anyString())).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(responseSpec);
+        when(responseSpec.content()).thenReturn("""
+                {
+                  "quizType": "MULTIPLE_CHOICE",
+                  "questionText": "RAG의 의미로 가장 알맞은 것은?",
+                  "choices": ["검색 증강 생성", "정렬 알고리즘"],
+                  "answer": "검색 증강 생성",
+                  "explanation": "RAG는 검색된 문맥을 활용해 답변 품질을 높이는 방식입니다.",
+                  "sourceSectionIds": [100]
+                }
+                """);
+
+        OllamaService ollamaService = new OllamaService(builder, objectMapper);
+
+        GeneratedQuizDraft quiz = ollamaService.generateQuiz(new QuizGenerationPrompt(
+                "RAG 단원",
+                "MULTIPLE_CHOICE",
+                "중",
+                1,
+                java.util.List.of(new RetrievedSection(
+                        "100",
+                        "RAG",
+                        "RAG는 검색 증강 생성이다.",
+                        "lecture.pdf",
+                        1,
+                        1,
+                        1,
+                        0.95
+                )),
+                ResolvedPromptTemplate.fallback()
+        ));
+
+        ArgumentCaptor<String> userPrompt = ArgumentCaptor.forClass(String.class);
+        verify(requestSpec).user(userPrompt.capture());
+
+        assertThat(userPrompt.getValue()).contains("RAG 단원");
+        assertThat(userPrompt.getValue()).contains("sectionId: 100");
+        assertThat(quiz.quizType()).isEqualTo("MULTIPLE_CHOICE");
+        assertThat(quiz.questionText()).contains("RAG");
+        assertThat(quiz.choices()).contains("검색 증강 생성");
+        assertThat(quiz.answer()).isEqualTo("검색 증강 생성");
+        assertThat(quiz.sourceSectionIds()).containsExactly(100L);
+    }
+
+    @Test
+    void generatesQuizAnswerFromQuizAndSourceSections() {
+        ChatClient.Builder builder = mock(ChatClient.Builder.class);
+        ChatClient chatClient = mock(ChatClient.class);
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec responseSpec = mock(ChatClient.CallResponseSpec.class);
+
+        when(builder.build()).thenReturn(chatClient);
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.system(anyString())).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(responseSpec);
+        when(responseSpec.content()).thenReturn("""
+                {
+                  "answer": "정답은 RAG가 검색된 문맥을 활용하기 때문입니다.",
+                  "citedSectionIds": ["100"],
+                  "answerable": true
+                }
+                """);
+
+        OllamaService ollamaService = new OllamaService(builder, objectMapper);
+
+        GeneratedAnswer answer = ollamaService.generateQuizAnswer(new QuizAnswerGenerationCommand(
+                "왜 이게 정답이야?",
+                createGeneratedQuiz(),
+                java.util.List.of(new RetrievedSection(
+                        "100",
+                        "RAG",
+                        "RAG는 검색된 문맥을 활용한다.",
+                        "lecture.pdf",
+                        1,
+                        1,
+                        1,
+                        0.95
+                ))
+        ));
+
+        ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> userPrompt = ArgumentCaptor.forClass(String.class);
+        verify(requestSpec).system(systemPrompt.capture());
+        verify(requestSpec).user(userPrompt.capture());
+
+        assertThat(systemPrompt.getValue()).contains("생성된 퀴즈를 해설");
+        assertThat(userPrompt.getValue()).contains("왜 이게 정답이야?");
+        assertThat(userPrompt.getValue()).contains("questionText:");
+        assertThat(userPrompt.getValue()).contains("sectionId: 100");
+        assertThat(answer.answer()).contains("RAG");
+        assertThat(answer.citedSectionIds()).containsExactly("100");
+        assertThat(answer.answerable()).isTrue();
+    }
+
+    private GeneratedQuiz createGeneratedQuiz() {
+        UserAccount user = UserAccount.create("user@example.com", "hash");
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Notebook notebook = Notebook.create(user, "강의 노트");
+        ReflectionTestUtils.setField(notebook, "notebookId", 10L);
+        GenerationJob job = GenerationJob.create(
+                user,
+                notebook,
+                null,
+                "RAG",
+                "객관식",
+                "중",
+                1,
+                "qwen3:4b-q4_K_M"
+        );
+        ReflectionTestUtils.setField(job, "jobId", 20L);
+        GeneratedQuiz quiz = GeneratedQuiz.create(
+                job,
+                1,
+                "객관식",
+                "RAG의 핵심 특징은 무엇인가?",
+                "[\"검색된 문맥을 활용한다\", \"항상 추측한다\"]",
+                "검색된 문맥을 활용한다",
+                "RAG는 검색된 문맥을 기반으로 답변을 생성한다.",
+                java.util.List.of(100L)
+        );
+        ReflectionTestUtils.setField(quiz, "quizId", 50L);
+        return quiz;
     }
 }
