@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SNOW explanation workspace.">
+  <title>SNOW Explanation</title>
+  <link rel="stylesheet" href="./src/styles/main.css">
+</head>
+<body>
+  <nav class="global-nav" aria-label="Global">
+    <div class="nav-brand-group">
+      <a class="nav-brand" href="./index.html">SNOW</a>
+      <span class="nav-tagline">
+        <strong>S</strong>mart <strong>N</strong>ote <strong>O</strong>rganizer for <strong>W</strong>eb
+      </span>
+    </div>
+    <div class="nav-links">
+      <a href="./index.html">Workspace</a>
+      <a href="./login.html">Login</a>
+    </div>
+  </nav>
+
+  <main class="explanation-shell">
+    <section class="explanation-board">
+      <article class="panel explanation-panel explanation-references-panel">
+        <div class="panel-heading">
+          <p class="panel-kicker">References</p>
+          <h2>&#52280;&#44256; &#49465;&#49496;</h2>
+        </div>
+        <label class="select-wrap explanation-notebook-picker">
+          <span>Notebook &#49440;&#53469;</span>
+          <select id="explanation-notebook-select"></select>
+        </label>
+        <div id="explanation-references" class="explanation-placeholder">Notebook&#51012; &#49440;&#53469;&#54616;&#47732; &#50629;&#47196;&#46300; &#47928;&#49436;&#50752; &#52280;&#44256; &#51221;&#48372;&#44032; &#54364;&#49884;&#46121;&#45768;&#45796;.</div>
+      </article>
+
+      <article class="panel explanation-panel">
+        <div class="panel-heading">
+          <p class="panel-kicker">Question</p>
+          <h2>&#47928;&#51228;</h2>
+        </div>
+        <div id="explanation-question" class="explanation-placeholder">&#49440;&#53469;&#54620; Notebook&#51032; &#50836;&#52397; &#45236;&#50857;&#51060; &#54364;&#49884;&#46121;&#45768;&#45796;.</div>
+      </article>
+
+      <article class="panel explanation-panel explanation-panel-featured">
+        <div class="panel-heading">
+          <p class="panel-kicker">Answer</p>
+          <h2>&#51221;&#45813; &#48143; &#54644;&#49444;</h2>
+        </div>
+        <div id="explanation-answer" class="explanation-placeholder">&#49373;&#49457; &#44208;&#44284;&#50752; &#54644;&#49444; &#52488;&#50504;&#51060; &#54364;&#49884;&#46121;&#45768;&#45796;.</div>
+      </article>
+    </section>
+  </main>
+
+  <script src="./src/explanation.js" defer></script>
+</body>
+</html>

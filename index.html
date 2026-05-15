@@ -8,152 +8,217 @@
   <link rel="stylesheet" href="./src/styles/main.css">
 </head>
 <body>
-  <div class="page-shell">
-    <header class="hero">
-      <a class="top-link" href="./login.html">Login</a>
-      <div class="hero-copy">
-        <p class="eyebrow">
-          <span class="brand-accent brand-s">S</span>mart
-          <span class="brand-accent brand-n">N</span>ote
-          <span class="brand-accent brand-o">O</span>rganizer for
-          <span class="brand-accent brand-w">W</span>eb
-        </p>
-        <h1>SNOW</h1>
-        <p class="hero-description">
-          텍스트 요청을 입력하고 결과를 확인하는 기본 흐름을 먼저 구성한 화면입니다.
-        </p>
-      </div>
-      <div class="hero-status">
-        <span class="status-dot"></span>
-        <span id="hero-status-text">2 documents analyzed</span>
-      </div>
-    </header>
+  <nav class="global-nav" aria-label="Global">
+    <div class="nav-brand-group">
+      <a class="nav-brand" href="./index.html">SNOW</a>
+      <span class="nav-tagline">
+        <strong>S</strong>mart <strong>N</strong>ote <strong>O</strong>rganizer for <strong>W</strong>eb
+      </span>
+    </div>
+    <div class="nav-links">
+      <a id="login-link" href="./login.html">Login</a>
+      <button type="button" id="logout-button" class="nav-button" hidden>Logout</button>
+    </div>
+  </nav>
 
-    <main class="dashboard">
-      <aside class="panel history-panel">
-        <div class="panel-heading">
-          <p class="panel-kicker">History</p>
-          <h2>요청 기록</h2>
+  <div class="screen-layout app-surface">
+    <aside class="screen-side screen-side-left">
+      <div class="left-layout">
+        <div class="left-rail">
+          <button type="button" id="left-menu-toggle" class="left-menu-toggle" aria-expanded="false" aria-controls="left-menu-drawer">
+            <span class="sr-only">Menu</span>
+            <strong aria-hidden="true">&#9776;</strong>
+          </button>
         </div>
-        <p class="history-caption">이전에 실행했던 요청을 빠르게 다시 확인할 수 있습니다.</p>
-        <div id="history-list" class="history-list">
-          <p class="history-empty">아직 저장된 요청 기록이 없습니다.</p>
-        </div>
-      </aside>
 
-      <section class="panel output-panel">
-        <div class="panel-heading panel-row">
-          <div>
-            <p class="panel-kicker">Output</p>
-            <h2>텍스트 출력</h2>
+        <div id="left-menu-drawer" class="left-menu-drawer" aria-hidden="true">
+          <div class="left-history-slot">
+            <aside class="panel history-panel">
+              <div class="panel-heading">
+                <p class="panel-kicker">History</p>
+                <h2>&#50836;&#52397; &#44592;&#47197;</h2>
+              </div>
+              <p class="history-caption">&#51060;&#51204;&#50640; &#49892;&#54665;&#54620; &#50836;&#52397;&#51012; &#48736;&#47476;&#44172; &#54869;&#51064;&#54624; &#49688; &#51080;&#49845;&#45768;&#45796;.</p>
+              <div id="history-list" class="history-list">
+                <p class="history-empty">&#50500;&#51649; &#51200;&#51109;&#46108; &#50836;&#52397; &#44592;&#47197;&#51060; &#50630;&#49845;&#45768;&#45796;.</p>
+              </div>
+            </aside>
+
+            <section class="panel document-upload-panel uploaded-files-panel">
+              <div class="panel-heading">
+                <p class="panel-kicker">Document</p>
+                <h2>&#47928;&#49436; &#50629;&#47196;&#46300;</h2>
+              </div>
+              <div class="upload-status-group">
+                <label class="upload-dropzone compact-upload inline-uploader" for="document-upload">
+                  <input id="document-upload" type="file" accept=".pdf,.ppt,.pptx" multiple>
+                  <strong>&#54028;&#51068;&#51012; &#46300;&#47000;&#44536;&#54644;&#49436; &#50629;&#47196;&#46300;&#54616;&#49464;&#50836;.</strong>
+                  <span id="selected-file-name">PDF, PPT, PPTX &#50668;&#47084; &#44060; &#50629;&#47196;&#46300;</span>
+                </label>
+                <label class="clip-upload-button" for="document-upload" aria-label="Choose file">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M21.4 11.6 12.1 20.9a6 6 0 0 1-8.5-8.5l9.8-9.8a4 4 0 0 1 5.7 5.7l-9.8 9.8a2 2 0 1 1-2.8-2.8l9.3-9.3"></path>
+                  </svg>
+                </label>
+                <div id="upload-status" class="upload-status idle" aria-live="polite">
+                  <span class="upload-status-icon"></span>
+                  <span id="upload-status-text">&#45824;&#44592; &#51473;</span>
+                </div>
+                <label class="add-document-button" for="document-upload">&#47928;&#49436; &#52628;&#44032;</label>
+              </div>
+              <div class="uploaded-files-header merged-uploaded-files-header">
+                <p class="panel-kicker">Uploaded Files</p>
+                <h3>&#50629;&#47196;&#46300;&#46108; &#47928;&#49436;</h3>
+              </div>
+              <div id="uploaded-files-list" class="uploaded-files-list">
+                <p class="uploaded-file-empty">&#50500;&#51649; &#50629;&#47196;&#46300;&#46108; &#47928;&#49436;&#44032; &#50630;&#49845;&#45768;&#45796;.</p>
+              </div>
+            </section>
+
+            <section class="panel notebook-panel">
+              <div class="panel-heading">
+                <h2>Notebook</h2>
+              </div>
+              <div class="notebook-actions">
+                <button type="button" id="notebook-new" class="ghost-button">&#49352; Notebook</button>
+                <button type="button" id="notebook-save" class="primary-button">&#51200;&#51109;</button>
+              </div>
+              <label class="select-wrap notebook-select-wrap">
+                <span>&#51200;&#51109;&#46108; Notebook</span>
+                <select id="notebook-select"></select>
+              </label>
+              <button type="button" id="notebook-load" class="ghost-button notebook-load">&#48520;&#47084;&#50724;&#44592;</button>
+              <button type="button" id="notebook-delete" class="ghost-button notebook-delete">&#49325;&#51228;</button>
+              <p id="notebook-status" class="notebook-status" aria-live="polite">Notebook can be saved or loaded here.</p>
+            </section>
           </div>
-          <button type="button" id="copy-button" class="ghost-button">출력 복사</button>
         </div>
-        <div id="output-window" class="output-window" aria-live="polite">
-          아직 생성된 결과가 없습니다. 아래 입력창에서 요청을 작성한 뒤 실행해보세요.
-        </div>
-        <div id="result-cards" class="result-cards">
-          <article class="result-card">
-            <p class="result-label">미리보기</p>
-            <h3>생성된 문제와 요약 결과가 이 영역에 표시됩니다.</h3>
-            <p>실제 연결 전에는 더미 결과가 나타나고, 이후 정답과 해설 패널을 붙일 수 있습니다.</p>
-          </article>
-        </div>
-      </section>
+      </div>
+    </aside>
 
-      <section class="panel input-panel">
-        <div class="panel-heading panel-row">
-          <div>
-            <p class="panel-kicker">Prompt</p>
-            <h2>텍스트 입력</h2>
-          </div>
-          <div class="upload-status-group">
-            <label class="upload-dropzone compact-upload inline-uploader" for="document-upload">
-              <input id="document-upload" type="file" accept=".pdf,.ppt,.pptx" multiple>
-              <strong>문서 업로드</strong>
-              <span id="selected-file-name">PDF, PPT, PPTX 여러 개 업로드</span>
-            </label>
-            <div id="upload-status" class="upload-status idle" aria-live="polite">
-              <span class="upload-status-dot"></span>
-              <span id="upload-status-text">대기 중</span>
+    <div class="page-shell">
+      <header class="hero product-hero">
+        <div class="hero-copy">
+          <p id="welcome-message" class="hero-description welcome-message" hidden></p>
+        </div>
+        <div class="hero-subtitle-row">
+          <p id="hero-status-text" class="hero-subtitle hero-title" contenteditable="true" spellcheck="false" dir="ltr" aria-label="Project title"></p>
+          <button type="button" id="hero-edit-title" class="hero-edit-button" aria-label="Edit project title">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 20h4l10-10a2.5 2.5 0 0 0-4-4L4 16v4z"></path>
+              <path d="M13.5 6.5l4 4"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <div id="job-status-message" hidden></div>
+        <div class="hidden-controls" hidden>
+          <select id="question-type">
+            <option value="객관식" selected>&#44061;&#44288;&#49885;</option>
+            <option value="단답형">&#45800;&#45813;&#54805;</option>
+            <option value="서술형">&#49436;&#49696;&#54805;</option>
+          </select>
+          <select id="difficulty">
+            <option value="easy">&#49772;&#50880;</option>
+            <option value="medium" selected>&#48372;&#53685;</option>
+            <option value="hard">&#50612;&#47140;&#50880;</option>
+          </select>
+          <input type="hidden" id="question-count" value="5">
+        </div>
+
+        <section class="panel workspace-panel">
+          <div class="panel-heading panel-row">
+            <div>
+              <p class="panel-kicker">Prompt</p>
+              <h2>&#50836;&#52397; &#51077;&#47141;</h2>
             </div>
           </div>
-        </div>
-        <div class="field-grid">
-          <label class="textarea-wrap field-span-2">
-            <span>출제 범위 또는 요청</span>
-            <textarea id="prompt-input" placeholder="예: 운영체제 핵심 개념 위주로 객관식 5문항과 서술형 2문항을 생성해줘."></textarea>
-          </label>
-
-          <label class="select-wrap">
-            <span>문제 유형</span>
-            <select id="question-type">
-              <option value="객관식">객관식</option>
-              <option value="단답형">단답형</option>
-              <option value="서술형">서술형</option>
-            </select>
-          </label>
-
-          <label class="select-wrap">
-            <span>난이도</span>
-            <select id="difficulty">
-              <option value="easy">쉬움</option>
-              <option value="medium" selected>보통</option>
-              <option value="hard">어려움</option>
-            </select>
-          </label>
-
-          <label class="select-wrap">
-            <span>문제 수</span>
-            <select id="question-count">
-              <option value="3">3문항</option>
-              <option value="5" selected>5문항</option>
-              <option value="10">10문항</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="controls">
-          <button type="button" id="sample-button" class="ghost-button">샘플 요청 넣기</button>
-          <button type="button" id="generate-button" class="primary-button">실행하기</button>
-          <button type="button" id="reset-button" class="ghost-button">초기화</button>
-        </div>
-
-        <div class="uploaded-files-panel">
-          <div class="uploaded-files-header">
-            <p class="panel-kicker">Uploaded Files</p>
-            <h3>업로드된 문서</h3>
+          <div class="field-grid">
+            <label class="textarea-wrap field-span-2">
+              <span>&#52636;&#51228; &#48276;&#50948; &#46608;&#45716; &#50836;&#52397;</span>
+              <textarea id="prompt-input" placeholder="예: 운영체제 교착상태 개념 위주로 객관식 5문항과 서술형 2문항을 생성해줘."></textarea>
+            </label>
           </div>
-          <div id="uploaded-files-list" class="uploaded-files-list">
-            <p class="uploaded-file-empty">아직 업로드된 문서가 없습니다.</p>
-          </div>
-        </div>
-      </section>
 
-      <section class="panel status-panel">
-        <div class="panel-heading">
-          <p class="panel-kicker">Job Status</p>
-          <h2>생성 작업 상태</h2>
-        </div>
-        <div class="job-timeline">
-          <div class="timeline-step is-active" data-step="queued">
-            <strong>QUEUED</strong>
-            <span>요청 접수</span>
+          <div class="controls">
+            <button type="button" id="sample-button" class="ghost-button">&#49368;&#54540; &#50836;&#52397;</button>
+            <button type="button" id="quiz-settings-toggle" class="ghost-button" aria-haspopup="dialog" aria-controls="quiz-settings-panel">
+              &#53300;&#51592; &#49373;&#49457;
+            </button>
+            <a class="ghost-button explanation-inline-link" href="./explanation.html">&#54644;&#49444;</a>
+            <button type="button" id="generate-button" class="primary-button">&#49892;&#54665;</button>
+            <button type="button" id="reset-button" class="ghost-button">&#52488;&#44592;&#54868;</button>
           </div>
-          <div class="timeline-step" data-step="running">
-            <strong>RUNNING</strong>
-            <span>검색 및 생성</span>
+
+          <div class="workspace-result-header panel-heading panel-row">
+            <div>
+              <p class="panel-kicker">Output</p>
+              <h2>&#44208;&#44284;</h2>
+            </div>
+            <button type="button" id="copy-button" class="ghost-button">&#48373;&#49324;</button>
           </div>
-          <div class="timeline-step" data-step="completed">
-            <strong>COMPLETED</strong>
-            <span>결과 확인 가능</span>
+          <div id="output-window" class="output-window" aria-live="polite">&#50500;&#51649; &#49373;&#49457;&#46108; &#44208;&#44284;&#44032; &#50630;&#49845;&#45768;&#45796;. &#50948; &#51077;&#47141;&#52285;&#50640; &#50836;&#52397;&#51012; &#51089;&#49457;&#54616;&#44256; &#49892;&#54665;&#54644;&#48372;&#49464;&#50836;.</div>
+          <div id="result-cards" class="result-cards">
+            <article class="result-card">
+              <p class="result-label">Preview</p>
+              <h3>&#49373;&#49457;&#46108; &#47928;&#51228;&#50752; &#50836;&#50557; &#44208;&#44284;&#44032; &#51060; &#50689;&#50669;&#50640; &#54364;&#49884;&#46121;&#45768;&#45796;.</h3>
+              <p>&#49892;&#51228; &#50672;&#44208; &#51204;&#50640;&#45716; &#50696;&#49884; &#44208;&#44284;&#44032; &#45208;&#53440;&#45208;&#44256;, &#51060;&#54980; &#51221;&#45813;&#44284; &#54644;&#49444; &#54056;&#45328;&#51012; &#48537;&#51068; &#49688; &#51080;&#49845;&#45768;&#45796;.</p>
+            </article>
           </div>
+        </section>
+      </main>
+    </div>
+
+  </div>
+
+  <div id="quiz-settings-modal" class="settings-modal" hidden>
+    <div class="settings-backdrop" data-close-settings></div>
+    <section id="quiz-settings-panel" class="panel settings-panel settings-dialog" role="dialog" aria-modal="true" aria-labelledby="quiz-settings-title">
+      <div class="panel-heading panel-row">
+        <div>
+          <p class="panel-kicker">Settings</p>
+          <h2 id="quiz-settings-title">&#49373;&#49457; &#49444;&#51221;</h2>
         </div>
-        <div id="job-status-message" class="output-window status-window" aria-live="polite">
-          분석 완료 문서가 1개 이상 있어야 실행 버튼이 활성화됩니다.
+        <button type="button" class="settings-close" data-close-settings aria-label="Close">x</button>
+      </div>
+
+      <div class="setting-group">
+        <p>&#47928;&#51228; &#50976;&#54805;</p>
+        <div class="setting-options" role="group" aria-label="Question type">
+          <button type="button" class="setting-button is-active" data-setting-target="question-type" data-setting-value="객관식">&#44061;&#44288;&#49885;</button>
+          <button type="button" class="setting-button" data-setting-target="question-type" data-setting-value="단답형">&#45800;&#45813;&#54805;</button>
+          <button type="button" class="setting-button" data-setting-target="question-type" data-setting-value="서술형">&#49436;&#49696;&#54805;</button>
         </div>
-      </section>
-    </main>
+      </div>
+
+      <div class="setting-group">
+        <p>&#45212;&#51060;&#46020;</p>
+        <div class="setting-options" role="group" aria-label="Difficulty">
+          <button type="button" class="setting-button" data-setting-target="difficulty" data-setting-value="easy">&#49772;&#50880;</button>
+          <button type="button" class="setting-button is-active" data-setting-target="difficulty" data-setting-value="medium">&#48372;&#53685;</button>
+          <button type="button" class="setting-button" data-setting-target="difficulty" data-setting-value="hard">&#50612;&#47140;&#50880;</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <p>&#47928;&#51228; &#49688;</p>
+        <div class="setting-options" role="group" aria-label="Question count">
+          <button type="button" class="setting-button" data-setting-target="question-count" data-setting-value="3">3&#47928;&#54637;</button>
+          <button type="button" class="setting-button is-active" data-setting-target="question-count" data-setting-value="5">5&#47928;&#54637;</button>
+          <button type="button" class="setting-button" data-setting-target="question-count" data-setting-value="10">10&#47928;&#54637;</button>
+        </div>
+        <label class="custom-count-field">
+          <span>&#51649;&#51217; &#51077;&#47141;</span>
+          <input type="number" id="custom-question-count" min="1" max="50" step="1" value="5" inputmode="numeric" aria-label="Custom question count">
+        </label>
+      </div>
+
+      <div class="settings-actions">
+        <button type="button" id="quiz-settings-confirm" class="primary-button settings-confirm">&#54869;&#51064;</button>
+      </div>
+    </section>
   </div>
 
   <script src="./src/main.js" defer></script>
