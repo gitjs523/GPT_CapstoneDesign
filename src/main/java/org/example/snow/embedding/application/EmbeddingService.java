@@ -49,6 +49,13 @@ public class EmbeddingService {
         log.info("===== saveEmbeddings END =====");
     }
 
+    public float[] createEmbedding(String text) {
+        if (text == null || text.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        return embeddingClient.embed(text.trim());
+    }
+
     public List<SimilarChunk> searchSimilarChunks(String question, Long notebookId, Long userId, int topK) {
         log.info("===== SEARCH START =====");
 

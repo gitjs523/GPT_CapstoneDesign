@@ -41,6 +41,26 @@ public class OllamaService {
             - answerable이 false면 citedSectionIds는 빈 배열로 반환한다.
             - 마크다운, 코드 블록, 설명 문장, 추가 텍스트는 금지한다.
             """;
+    private static final String QUIZ_ANSWER_SYSTEM_PROMPT = """
+            너는 생성된 퀴즈를 해설하는 학습 튜터 AI다.
+            반드시 제공된 퀴즈 정보와 근거 문맥만 바탕으로 답변해라.
+            문맥으로 확인할 수 없는 내용은 추측하지 말고 "제공된 문맥만으로는 알 수 없습니다."라고 답해라.
+            답변은 한국어로 작성해라.
+            반드시 JSON 객체 하나만 반환해라.
+            JSON 스키마는 아래와 같다.
+            {
+              "answer": "string",
+              "citedSectionIds": ["string"],
+              "answerable": true
+            }
+            규칙:
+            - answer는 1~4문장으로 작성한다.
+            - 문제의 정답 이유, 오답 이유, 개념 설명은 퀴즈 정보와 근거 문맥 안에서만 설명한다.
+            - answerable이 true면 citedSectionIds에는 실제로 근거로 사용한 sectionId만 넣는다.
+            - 근거 섹션 없이 퀴즈 정보만으로 답변했다면 citedSectionIds는 빈 배열로 둔다.
+            - answerable이 false면 citedSectionIds는 빈 배열로 반환한다.
+            - 마크다운, 코드 블록, 설명 문장, 추가 텍스트는 금지한다.
+            """;
 
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
@@ -146,6 +166,22 @@ public class OllamaService {
         }
     }
 
+    public GeneratedAnswer generateQuizAnswer(QuizAnswerGenerationCommand command) {
+        try {
+            String rawContent = chatClient.prompt()
+                    .system(QUIZ_ANSWER_SYSTEM_PROMPT)
+                    .user(buildQuizAnswerPrompt(command))
+                    .call()
+                    .content();
+
+            return parseGeneratedAnswer(rawContent);
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new BusinessException(ErrorCode.AI_RESPONSE_GENERATION_FAILED, exception);
+        }
+    }
+
     private String buildGroundedAnswerPrompt(AnswerGenerationCommand command) {
         String contextBlocks = command.sections().stream()
                 .map(RetrievedSection::toPromptBlock)
@@ -162,6 +198,52 @@ public class OllamaService {
                 위 문맥만 근거로 답변해라.
                 답변이 가능하면 answerable=true, 불가능하면 answerable=false로 반환해라.
                 """.formatted(command.question(), contextBlocks);
+    }
+
+    private String buildQuizAnswerPrompt(QuizAnswerGenerationCommand command) {
+        String contextBlocks = command.sourceSections().stream()
+                .map(RetrievedSection::toPromptBlock)
+                .reduce((left, right) -> left + "\n\n---\n\n" + right)
+                .orElse("근거 섹션 없음");
+
+        GeneratedQuizResult quiz = GeneratedQuizResult.from(command.quiz());
+        String choices = StringUtils.hasText(quiz.choices()) ? quiz.choices() : "선택지 없음";
+        String explanation = StringUtils.hasText(quiz.explanation()) ? quiz.explanation() : "기존 해설 없음";
+
+        return """
+                사용자 질문:
+                %s
+
+                퀴즈 정보:
+                quizId: %s
+                quizType: %s
+                questionText:
+                %s
+
+                choices:
+                %s
+
+                answer:
+                %s
+
+                explanation:
+                %s
+
+                근거 문맥:
+                %s
+
+                위 퀴즈 정보와 근거 문맥만 바탕으로 사용자 질문에 답변해라.
+                답변이 가능하면 answerable=true, 불가능하면 answerable=false로 반환해라.
+                """.formatted(
+                command.question(),
+                quiz.quizId(),
+                quiz.quizType(),
+                quiz.questionText(),
+                choices,
+                quiz.answer(),
+                explanation,
+                contextBlocks
+        );
     }
 
     private GeneratedAnswer parseGeneratedAnswer(String rawContent) {

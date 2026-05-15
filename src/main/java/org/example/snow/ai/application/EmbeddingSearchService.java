@@ -2,6 +2,7 @@ package org.example.snow.ai.application;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.snow.embedding.application.EmbeddingService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,7 @@ public class EmbeddingSearchService {
                 throw new IllegalArgumentException("question is empty");
             }
 
-            float[] questionVector = embeddingService.requestEmbedding(question.trim());
+            float[] questionVector = embeddingService.createEmbedding(question.trim());
 
             String vectorString = convertToPgVector(questionVector);
 
@@ -79,7 +80,7 @@ public class EmbeddingSearchService {
             throw new IllegalArgumentException("limit must be greater than 0");
         }
 
-        float[] questionVector = embeddingService.requestEmbedding(question.trim());
+        float[] questionVector = embeddingService.createEmbedding(question.trim());
         String vectorString = convertToPgVector(questionVector);
 
         String sql = """
