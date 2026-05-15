@@ -2,7 +2,6 @@ services:
   app:
     image: ${DOCKERHUB_USERNAME}/snow-app:latest
     restart: unless-stopped
+    network_mode: host
     env_file:
       - .env
-    ports:
-      - "8080:8080"
