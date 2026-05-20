@@ -40,4 +40,12 @@ public interface ChunkRepository extends JpaRepository<Chunk, Long> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Chunk c SET c.deletedAt = :now WHERE c.document.notebook.notebookId = :notebookId AND c.deletedAt IS NULL")
     void softDeleteByNotebookId(@Param("notebookId") Long notebookId, @Param("now") LocalDateTime now);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Chunk c SET c.embedding = null WHERE c.document.documentId = :documentId AND c.deletedAt IS NULL")
+    void nullEmbeddingByDocumentId(@Param("documentId") Long documentId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Chunk c SET c.embedding = null WHERE c.document.notebook.notebookId = :notebookId AND c.deletedAt IS NULL")
+    void nullEmbeddingByNotebookId(@Param("notebookId") Long notebookId);
 }

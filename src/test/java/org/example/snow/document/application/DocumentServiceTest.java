@@ -6,6 +6,10 @@ import org.example.snow.document.domain.Document;
 import org.example.snow.document.domain.ExtractedSection;
 import org.example.snow.document.domain.Section;
 import org.example.snow.document.domain.SourceUnitType;
+import org.example.snow.ai.infra.GeneratedQuizRepository;
+import org.example.snow.ai.infra.GenerationJobRepository;
+import org.example.snow.ai.infra.NotebookQaHistoryRepository;
+import org.example.snow.ai.infra.QuizQaHistoryRepository;
 import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.document.infra.DocumentRepository;
 import org.example.snow.document.infra.SectionRepository;
@@ -41,6 +45,10 @@ class DocumentServiceTest {
     private final ChunkRepository chunkRepository = mock(ChunkRepository.class);
     private final DocumentAnalysisService documentAnalysisService = mock(DocumentAnalysisService.class);
     private final FileStorageService fileStorageService = mock(FileStorageService.class);
+    private final GeneratedQuizRepository generatedQuizRepository = mock(GeneratedQuizRepository.class);
+    private final GenerationJobRepository generationJobRepository = mock(GenerationJobRepository.class);
+    private final QuizQaHistoryRepository quizQaHistoryRepository = mock(QuizQaHistoryRepository.class);
+    private final NotebookQaHistoryRepository notebookQaHistoryRepository = mock(NotebookQaHistoryRepository.class);
 
     private final DocumentService documentService = new DocumentService(
             documentRepository,
@@ -48,7 +56,11 @@ class DocumentServiceTest {
             sectionRepository,
             chunkRepository,
             documentAnalysisService,
-            fileStorageService
+            fileStorageService,
+            generatedQuizRepository,
+            generationJobRepository,
+            quizQaHistoryRepository,
+            notebookQaHistoryRepository
     );
 
     @BeforeEach
@@ -239,8 +251,11 @@ class DocumentServiceTest {
 
         documentService.deleteDocument(1L, 10L, 100L);
 
+        verify(chunkRepository).nullEmbeddingByDocumentId(100L);
         verify(chunkRepository).softDeleteByDocumentId(any(), any());
         verify(sectionRepository).softDeleteByDocumentId(any(), any());
+        verify(generatedQuizRepository).clearSourceSectionIdsByDocumentId(100L);
+        verify(notebookQaHistoryRepository).clearCitedSectionIdsByDocumentId(100L);
         assertThat(doc.isDeleted()).isTrue();
     }
 
@@ -275,9 +290,14 @@ class DocumentServiceTest {
     void cascadeDeleteByNotebook_softDeletesAllRelatedData() {
         documentService.cascadeDeleteByNotebook(10L);
 
+        verify(chunkRepository).nullEmbeddingByNotebookId(10L);
         verify(chunkRepository).softDeleteByNotebookId(any(), any());
         verify(sectionRepository).softDeleteByNotebookId(any(), any());
         verify(documentRepository).softDeleteByNotebookId(any(), any());
+        verify(quizQaHistoryRepository).softDeleteByNotebookId(any(), any());
+        verify(generatedQuizRepository).softDeleteByNotebookId(any(), any());
+        verify(generationJobRepository).softDeleteByNotebookId(any(), any());
+        verify(notebookQaHistoryRepository).softDeleteByNotebookId(any(), any());
     }
 
     // ───────────────────────────── helpers ───────────────────────────────────

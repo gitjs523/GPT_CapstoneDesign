@@ -1,6 +1,10 @@
 package org.example.snow.document.application;
 
 import lombok.RequiredArgsConstructor;
+import org.example.snow.ai.infra.GeneratedQuizRepository;
+import org.example.snow.ai.infra.GenerationJobRepository;
+import org.example.snow.ai.infra.NotebookQaHistoryRepository;
+import org.example.snow.ai.infra.QuizQaHistoryRepository;
 import org.example.snow.document.domain.AnalysisStatus;
 import org.example.snow.document.domain.Document;
 import org.example.snow.document.domain.Section;
@@ -30,6 +34,10 @@ public class DocumentService {
     private final ChunkRepository chunkRepository;
     private final DocumentAnalysisService documentAnalysisService;
     private final FileStorageService fileStorageService;
+    private final GeneratedQuizRepository generatedQuizRepository;
+    private final GenerationJobRepository generationJobRepository;
+    private final QuizQaHistoryRepository quizQaHistoryRepository;
+    private final NotebookQaHistoryRepository notebookQaHistoryRepository;
 
     @Transactional(readOnly = true)
     public List<Document> getDocuments(Long userId, Long notebookId) {
@@ -99,23 +107,25 @@ public class DocumentService {
         }
 
         LocalDateTime now = LocalDateTime.now();
+        chunkRepository.nullEmbeddingByDocumentId(documentId);
         chunkRepository.softDeleteByDocumentId(documentId, now);
         sectionRepository.softDeleteByDocumentId(documentId, now);
-        // TODO: generated_quiz.source_section_ids NULL 초기화 (generated_quiz 구현 후 추가)
-        // TODO: notebook_qa_history.cited_section_ids NULL 초기화 (notebook_qa_history 구현 후 추가)
+        generatedQuizRepository.clearSourceSectionIdsByDocumentId(documentId);
+        notebookQaHistoryRepository.clearCitedSectionIdsByDocumentId(documentId);
         document.softDelete();
     }
 
     @Transactional
     public void cascadeDeleteByNotebook(Long notebookId) {
         LocalDateTime now = LocalDateTime.now();
+        chunkRepository.nullEmbeddingByNotebookId(notebookId);
         chunkRepository.softDeleteByNotebookId(notebookId, now);
         sectionRepository.softDeleteByNotebookId(notebookId, now);
         documentRepository.softDeleteByNotebookId(notebookId, now);
-        // TODO: generation_job cascade soft delete (generation_job 구현 후 추가)
-        // TODO: generated_quiz cascade soft delete
-        // TODO: quiz_qa_history cascade soft delete
-        // TODO: notebook_qa_history cascade soft delete
+        quizQaHistoryRepository.softDeleteByNotebookId(notebookId, now);
+        generatedQuizRepository.softDeleteByNotebookId(notebookId, now);
+        generationJobRepository.softDeleteByNotebookId(notebookId, now);
+        notebookQaHistoryRepository.softDeleteByNotebookId(notebookId, now);
     }
 
     private Notebook getNotebookWithOwnershipCheck(Long userId, Long notebookId) {
