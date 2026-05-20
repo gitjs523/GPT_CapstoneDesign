@@ -2,7 +2,9 @@ package org.example.snow.ai.web;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.example.snow.ai.application.QuizGenerationService;
+import org.example.snow.ai.application.GeneratedQuizResult;
+import org.example.snow.ai.application.QuizGenerationCommand;
+import org.example.snow.ai.application.QuizService;
 import org.example.snow.ai.web.dto.GeneratedQuizResponse;
 import org.example.snow.ai.web.dto.QuizGenerationJobResponse;
 import org.example.snow.ai.web.dto.QuizGenerationRequest;
@@ -16,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -24,7 +25,7 @@ import java.util.List;
 @RequestMapping("/api")
 public class QuizGenerationController {
 
-    private final QuizGenerationService quizGenerationService;
+    private final QuizService quizService;
 
     @PostMapping("/notebooks/{notebookId}/quiz-jobs")
     public ResponseEntity<QuizGenerationJobResponse> createQuizJob(
@@ -33,10 +34,9 @@ public class QuizGenerationController {
             @Valid @RequestBody QuizGenerationRequest request
     ) {
         QuizGenerationJobResponse response = QuizGenerationJobResponse.from(
-                quizGenerationService.generate(principal.userId(), notebookId, request.toCommand())
+                quizService.requestGeneration(principal.userId(), notebookId, request.toCommand())
         );
-        return ResponseEntity.created(URI.create("/api/quiz-jobs/" + response.jobId()))
-                .body(response);
+        return ResponseEntity.accepted().body(response);
     }
 
     @GetMapping("/quiz-jobs/{jobId}")
@@ -45,7 +45,7 @@ public class QuizGenerationController {
             @PathVariable Long jobId
     ) {
         return ResponseEntity.ok(QuizGenerationJobResponse.from(
-                quizGenerationService.getJob(principal.userId(), jobId)
+                quizService.getJob(principal.userId(), jobId)
         ));
     }
 
@@ -54,7 +54,7 @@ public class QuizGenerationController {
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             @PathVariable Long jobId
     ) {
-        List<GeneratedQuizResponse> quizzes = quizGenerationService.getQuizzes(principal.userId(), jobId)
+        List<GeneratedQuizResponse> quizzes = quizService.getQuizzes(principal.userId(), jobId)
                 .stream()
                 .map(GeneratedQuizResponse::from)
                 .toList();

@@ -5,19 +5,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.snow.ai.domain.GeneratedQuiz;
 import org.example.snow.ai.domain.GenerationContext;
 import org.example.snow.ai.domain.GenerationJob;
-import org.example.snow.ai.domain.PromptTemplate;
 import org.example.snow.ai.infra.GeneratedQuizRepository;
 import org.example.snow.ai.infra.GenerationContextRepository;
 import org.example.snow.ai.infra.GenerationJobRepository;
-import org.example.snow.ai.infra.PromptTemplateRepository;
 import org.example.snow.document.domain.Section;
 import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
-import org.example.snow.notebook.domain.Notebook;
-import org.example.snow.notebook.infra.NotebookRepository;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -34,85 +31,63 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class QuizGenerationService {
 
-    private static final int RETRIEVAL_LIMIT = 8;
-
-    private final NotebookRepository notebookRepository;
-    private final SectionRepository sectionRepository;
-    private final PromptTemplateRepository promptTemplateRepository;
     private final GenerationJobRepository generationJobRepository;
+    private final SectionRepository sectionRepository;
     private final GenerationContextRepository generationContextRepository;
     private final GeneratedQuizRepository generatedQuizRepository;
     private final EmbeddingSearchService embeddingSearchService;
     private final OllamaService ollamaService;
 
-    @Value("${spring.ai.ollama.chat.options.model:unknown}")
-    private String chatModelName;
-
+    @Async
     @Transactional
-    public QuizGenerationJobResult generate(Long userId, Long notebookId, QuizGenerationCommand command) {
-        Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
-        PromptTemplate promptTemplate = promptTemplateRepository.findFirstByIsActiveTrueOrderByCreatedAtDesc()
-                .orElse(null);
-        ResolvedPromptTemplate resolvedPromptTemplate = ResolvedPromptTemplate.from(promptTemplate);
+    public void runAsync(Long jobId) {
+        GenerationJob job = generationJobRepository.findById(jobId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GENERATION_JOB_NOT_FOUND));
+        try {
+            run(job);
+        } catch (Exception e) {
+            log.error("Quiz generation failed. jobId={}", jobId, e);
+            markFailed(jobId);
+        }
+    }
 
-        GenerationJob job = generationJobRepository.save(GenerationJob.create(
-                notebook.getUser(),
-                notebook,
-                promptTemplate,
-                command.scopeText(),
-                command.quizType(),
-                command.difficulty(),
-                command.quizCount(),
-                chatModelName
-        ));
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markFailed(Long jobId) {
+        generationJobRepository.findById(jobId).ifPresent(job -> {
+            job.fail(0);
+            generationJobRepository.save(job);
+        });
+    }
+
+    private void run(GenerationJob job) {
         job.start();
 
-        List<GeneratedQuiz> savedQuizzes;
-        try {
-            List<RetrievedSection> retrievedSections = embeddingSearchService.searchSimilarSections(
-                    notebookId,
-                    command.scopeText(),
-                    RETRIEVAL_LIMIT
-            );
-            if (retrievedSections.isEmpty()) {
-                job.fail(0);
-                return buildResult(job);
-            }
+        ResolvedPromptTemplate resolvedPromptTemplate = ResolvedPromptTemplate.from(job.getPromptTemplate());
 
-            List<Long> retrievedSectionIds = parseSectionIds(retrievedSections);
-            Map<Long, Section> sectionsById = sectionRepository.findAllById(retrievedSectionIds).stream()
-                    .collect(Collectors.toMap(Section::getSectionId, Function.identity()));
-            saveGenerationContexts(job, retrievedSections, sectionsById);
+        List<RetrievedSection> retrievedSections = embeddingSearchService.searchSimilarSections(
+                job.getNotebook().getNotebookId(),
+                job.getScopeText(),
+                Math.max(8, job.getQuizCount())
+        );
 
-            savedQuizzes = generateAndSaveQuizzes(job, command, retrievedSections, retrievedSectionIds, resolvedPromptTemplate);
-            updateJobStatus(job, command.quizCount(), savedQuizzes.size());
-        } catch (RuntimeException exception) {
-            log.error("Quiz generation failed. jobId={}", job.getJobId(), exception);
+        if (retrievedSections.isEmpty()) {
             job.fail(0);
-            return buildResult(job);
+            return;
         }
 
-        return QuizGenerationJobResult.from(
-                job,
-                savedQuizzes.stream()
-                        .map(GeneratedQuizResult::from)
-                        .toList()
+        List<Long> retrievedSectionIds = parseSectionIds(retrievedSections);
+        Map<Long, Section> sectionsById = sectionRepository.findAllById(retrievedSectionIds).stream()
+                .collect(Collectors.toMap(Section::getSectionId, Function.identity()));
+        saveGenerationContexts(job, retrievedSections, sectionsById);
+
+        QuizGenerationCommand command = new QuizGenerationCommand(
+                job.getScopeText(),
+                job.getQuizType(),
+                job.getDifficulty(),
+                job.getQuizCount()
         );
-    }
-
-    @Transactional(readOnly = true)
-    public QuizGenerationJobResult getJob(Long userId, Long jobId) {
-        GenerationJob job = getJobWithOwnershipCheck(userId, jobId);
-        return buildResult(job);
-    }
-
-    @Transactional(readOnly = true)
-    public List<GeneratedQuizResult> getQuizzes(Long userId, Long jobId) {
-        getJobWithOwnershipCheck(userId, jobId);
-        return generatedQuizRepository.findAllByGenerationJob_JobIdAndDeletedAtIsNullOrderByQuizOrderAsc(jobId)
-                .stream()
-                .map(GeneratedQuizResult::from)
-                .toList();
+        List<GeneratedQuiz> savedQuizzes = generateAndSaveQuizzes(job, command, retrievedSections, retrievedSectionIds, resolvedPromptTemplate);
+        updateJobStatus(job, job.getQuizCount(), savedQuizzes.size());
     }
 
     private List<GeneratedQuiz> generateAndSaveQuizzes(
@@ -146,8 +121,8 @@ public class QuizGenerationService {
                         sourceSectionIds
                 ));
                 savedQuizzes.add(quiz);
-            } catch (RuntimeException exception) {
-                log.warn("Single quiz generation failed. jobId={}, quizOrder={}", job.getJobId(), quizOrder, exception);
+            } catch (RuntimeException e) {
+                log.warn("Single quiz generation failed. jobId={}, quizOrder={}", job.getJobId(), quizOrder, e);
             }
         }
         return savedQuizzes;
@@ -187,33 +162,6 @@ public class QuizGenerationService {
         }
     }
 
-    private QuizGenerationJobResult buildResult(GenerationJob job) {
-        List<GeneratedQuizResult> quizzes = generatedQuizRepository
-                .findAllByGenerationJob_JobIdAndDeletedAtIsNullOrderByQuizOrderAsc(job.getJobId())
-                .stream()
-                .map(GeneratedQuizResult::from)
-                .toList();
-        return QuizGenerationJobResult.from(job, quizzes);
-    }
-
-    private Notebook getNotebookWithOwnershipCheck(Long userId, Long notebookId) {
-        Notebook notebook = notebookRepository.findByNotebookIdAndDeletedAtIsNull(notebookId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOTEBOOK_NOT_FOUND));
-        if (!notebook.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.NOTEBOOK_ACCESS_DENIED);
-        }
-        return notebook;
-    }
-
-    private GenerationJob getJobWithOwnershipCheck(Long userId, Long jobId) {
-        GenerationJob job = generationJobRepository.findByJobIdAndDeletedAtIsNull(jobId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.GENERATION_JOB_NOT_FOUND));
-        if (!job.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-        return job;
-    }
-
     private List<Long> parseSectionIds(List<RetrievedSection> retrievedSections) {
         return retrievedSections.stream()
                 .map(RetrievedSection::sectionId)
@@ -241,7 +189,7 @@ public class QuizGenerationService {
         }
         try {
             return Long.valueOf(sectionId.trim());
-        } catch (NumberFormatException exception) {
+        } catch (NumberFormatException e) {
             return null;
         }
     }
