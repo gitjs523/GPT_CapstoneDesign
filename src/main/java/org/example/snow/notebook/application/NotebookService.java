@@ -56,6 +56,15 @@ public class NotebookService {
         notebook.softDelete();
     }
 
+    @Transactional
+    public void cascadeDeleteByUser(Long userId) {
+        List<Notebook> notebooks = notebookRepository.findAllByUser_UserIdAndDeletedAtIsNullOrderByCreatedAtAsc(userId);
+        for (Notebook notebook : notebooks) {
+            documentService.cascadeDeleteByNotebook(notebook.getNotebookId());
+            notebook.softDelete();
+        }
+    }
+
     private Notebook getActiveNotebook(Long notebookId) {
         return notebookRepository.findByNotebookIdAndDeletedAtIsNull(notebookId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTEBOOK_NOT_FOUND));
