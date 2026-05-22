@@ -19,7 +19,6 @@ import org.springframework.util.StringUtils;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -36,6 +35,7 @@ public class AuthService {
     private final AccessTokenProvider accessTokenProvider;
     private final RefreshTokenHasher refreshTokenHasher;
     private final AuthProperties authProperties;
+    private final RefreshTokenFamilyRevoker familyRevoker;
 
     @Transactional
     public SignupResult signup(String rawEmail, String rawPassword, String userAgent) {
@@ -67,7 +67,7 @@ public class AuthService {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
 
-        if (!passwordEncoder.matches(rawPassword, userAccount.getPasswordHash())) {
+        if (userAccount.isDeleted() || !passwordEncoder.matches(rawPassword, userAccount.getPasswordHash())) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
 
@@ -94,12 +94,11 @@ public class AuthService {
 
         LocalDateTime now = LocalDateTime.now();
         if (refreshToken.isRevoked()) {
-            revokeTokenFamily(refreshToken.getTokenFamily(), now);
+            familyRevoker.revokeFamily(refreshToken.getTokenFamily(), now);
             throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         if (refreshToken.isExpired(now)) {
-            refreshToken.revoke(now);
             throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
         }
 
@@ -129,8 +128,12 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public UserAccount getUserOrThrow(Long userId) {
-        return userAccountRepository.findById(userId)
+        UserAccount user = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        if (user.isDeleted()) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return user;
     }
 
     private String issueRefreshToken(UserAccount userAccount, UUID tokenFamily, String userAgent) {
@@ -144,11 +147,6 @@ public class AuthService {
         );
         refreshTokenRepository.save(refreshToken);
         return rawRefreshToken;
-    }
-
-    private void revokeTokenFamily(UUID tokenFamily, LocalDateTime now) {
-        List<RefreshToken> activeTokens = refreshTokenRepository.findAllByTokenFamilyAndRevokedAtIsNull(tokenFamily);
-        activeTokens.forEach(token -> token.revoke(now));
     }
 
     private String generateRefreshToken() {

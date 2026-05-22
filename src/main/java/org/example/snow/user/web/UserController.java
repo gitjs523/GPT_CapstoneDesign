@@ -1,6 +1,5 @@
 package org.example.snow.user.web;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.example.snow.auth.application.AuthService;
 import org.example.snow.auth.security.AuthenticatedUserPrincipal;
@@ -30,7 +29,7 @@ public class UserController {
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal AuthenticatedUserPrincipal principal, HttpServletRequest request) {
+    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal AuthenticatedUserPrincipal principal) {
         userService.withdraw(principal.userId());
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.deleteCookie().toString())
