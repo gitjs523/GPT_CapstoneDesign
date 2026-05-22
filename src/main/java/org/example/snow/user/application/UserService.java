@@ -33,5 +33,6 @@ public class UserService {
         refreshTokenRepository.revokeAllActiveByUserId(userId, now);
         notebookService.cascadeDeleteByUser(userId);
         user.softDelete();
+        userAccountRepository.save(user);
     }
 }
