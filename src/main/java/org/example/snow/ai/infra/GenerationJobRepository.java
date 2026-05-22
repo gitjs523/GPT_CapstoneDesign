@@ -13,6 +13,9 @@ public interface GenerationJobRepository extends JpaRepository<GenerationJob, Lo
 
     Optional<GenerationJob> findByJobIdAndDeletedAtIsNull(Long jobId);
 
+    @Query("SELECT j FROM GenerationJob j LEFT JOIN FETCH j.notebook LEFT JOIN FETCH j.promptTemplate WHERE j.jobId = :jobId")
+    Optional<GenerationJob> findByIdWithDetails(@Param("jobId") Long jobId);
+
     @Modifying(clearAutomatically = true)
     @Query("UPDATE GenerationJob j SET j.deletedAt = :now WHERE j.notebook.notebookId = :notebookId AND j.deletedAt IS NULL")
     void softDeleteByNotebookId(@Param("notebookId") Long notebookId, @Param("now") LocalDateTime now);

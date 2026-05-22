@@ -50,6 +50,9 @@ public class DocumentService {
         Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
         UploadedDocument file = command.file();
         String fileType = resolveFileType(file.contentType(), file.originalFilename());
+        if ("UNKNOWN".equals(fileType)) {
+            throw new BusinessException(ErrorCode.UNSUPPORTED_DOCUMENT_TYPE);
+        }
         String storedKey = fileStorageService.upload(file.content(), file.contentType(), file.originalFilename(), notebookId);
         Document document = Document.create(
                 notebook,
@@ -59,6 +62,7 @@ public class DocumentService {
                 (long) file.content().length
         );
         Document saved = documentRepository.save(document);
+        saved.startAnalysis();
         Long savedId = saved.getDocumentId();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
@@ -113,6 +117,7 @@ public class DocumentService {
         generatedQuizRepository.clearSourceSectionIdsByDocumentId(documentId);
         notebookQaHistoryRepository.clearCitedSectionIdsByDocumentId(documentId);
         document.softDelete();
+        documentRepository.save(document);
     }
 
     @Transactional

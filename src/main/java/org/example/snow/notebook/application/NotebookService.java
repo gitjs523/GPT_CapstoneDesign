@@ -54,6 +54,7 @@ public class NotebookService {
         validateOwnership(notebook, userId);
         documentService.cascadeDeleteByNotebook(notebookId);
         notebook.softDelete();
+        notebookRepository.save(notebook);
     }
 
     @Transactional
@@ -62,6 +63,7 @@ public class NotebookService {
         for (Notebook notebook : notebooks) {
             documentService.cascadeDeleteByNotebook(notebook.getNotebookId());
             notebook.softDelete();
+            notebookRepository.save(notebook);
         }
     }
 

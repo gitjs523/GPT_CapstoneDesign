@@ -19,10 +19,7 @@ import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,23 +35,21 @@ public class DocumentAnalysisService {
     private final DocumentIngestionService documentIngestionService;
     private final OllamaService ollamaService;
     private final EmbeddingService embeddingService;
+    private final DocumentAnalysisStatusManager statusManager;
 
     @Async
-    @Transactional
     public void analyzeAsync(Long documentId, DocumentUploadCommand command) {
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
         try {
+            Document document = documentRepository.findById(documentId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
             analyze(document, command);
         } catch (Exception e) {
             log.error("Document analysis failed for documentId={}", documentId, e);
-            markFailed(documentId, e.getMessage());
+            statusManager.markFailed(documentId, e.getMessage());
         }
     }
 
     private void analyze(Document document, DocumentUploadCommand command) {
-        document.startAnalysis();
-
         DocumentProcessingResult result = documentIngestionService.ingest(command);
 
         saveSourceUnits(document, result.extractedDocument());
@@ -64,22 +59,7 @@ public class DocumentAnalysisService {
         embeddingService.saveEmbeddings(savedChunks);
 
         String summaryText = ollamaService.generateSummary(buildSummaryInput(result.sections()));
-        document.saveSummary(summaryText);
-
-        document.completeAnalysis(result.extractedDocument().sourceUnits().size());
-        documentRepository.save(document);
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markFailed(Long documentId, String errorMessage) {
-        documentRepository.findById(documentId).ifPresent(doc -> {
-            doc.failAnalysis(errorMessage);
-            doc.softDelete();
-            LocalDateTime now = LocalDateTime.now();
-            chunkRepository.softDeleteByDocumentId(documentId, now);
-            sectionRepository.softDeleteByDocumentId(documentId, now);
-            documentRepository.save(doc);
-        });
+        statusManager.completeAnalysis(document.getDocumentId(), summaryText, result.extractedDocument().sourceUnits().size());
     }
 
     private String buildSummaryInput(List<ExtractedSection> sections) {
@@ -116,7 +96,6 @@ public class DocumentAnalysisService {
                 .toList();
         return chunkRepository.saveAll(chunks);
     }
-
 
     private Section findParentSection(
             List<Section> savedSections,
