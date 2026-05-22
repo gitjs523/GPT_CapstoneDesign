@@ -67,6 +67,15 @@ public class QuizService {
     }
 
     @Transactional(readOnly = true)
+    public List<QuizGenerationJobResult> getJobs(Long userId, Long notebookId) {
+        getNotebookWithOwnershipCheck(userId, notebookId);
+        return generationJobRepository.findAllByNotebook_NotebookIdAndDeletedAtIsNullOrderByCreatedAtDesc(notebookId)
+                .stream()
+                .map(job -> QuizGenerationJobResult.from(job, List.of()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<GeneratedQuizResult> getQuizzes(Long userId, Long jobId) {
         getJobWithOwnershipCheck(userId, jobId);
         return generatedQuizRepository.findAllByGenerationJob_JobIdAndDeletedAtIsNullOrderByQuizOrderAsc(jobId)

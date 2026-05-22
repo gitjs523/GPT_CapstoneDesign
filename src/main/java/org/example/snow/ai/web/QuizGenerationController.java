@@ -49,6 +49,18 @@ public class QuizGenerationController {
         ));
     }
 
+    @GetMapping("/notebooks/{notebookId}/quiz-jobs")
+    public ResponseEntity<List<QuizGenerationJobResponse>> getQuizJobs(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @PathVariable Long notebookId
+    ) {
+        List<QuizGenerationJobResponse> jobs = quizService.getJobs(principal.userId(), notebookId)
+                .stream()
+                .map(QuizGenerationJobResponse::from)
+                .toList();
+        return ResponseEntity.ok(jobs);
+    }
+
     @GetMapping("/quiz-jobs/{jobId}/quizzes")
     public ResponseEntity<List<GeneratedQuizResponse>> getQuizzes(
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
