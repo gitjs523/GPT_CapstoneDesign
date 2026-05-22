@@ -39,11 +39,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/documents/**").permitAll()
                         .requestMatchers("/api/users/me").authenticated()
                         .requestMatchers("/api/notebooks/**").authenticated()
                         .requestMatchers("/api/quiz-jobs/**").authenticated()
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
