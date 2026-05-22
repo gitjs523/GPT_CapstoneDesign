@@ -54,6 +54,17 @@ public class NotebookService {
         validateOwnership(notebook, userId);
         documentService.cascadeDeleteByNotebook(notebookId);
         notebook.softDelete();
+        notebookRepository.save(notebook);
+    }
+
+    @Transactional
+    public void cascadeDeleteByUser(Long userId) {
+        List<Notebook> notebooks = notebookRepository.findAllByUser_UserIdAndDeletedAtIsNullOrderByCreatedAtAsc(userId);
+        for (Notebook notebook : notebooks) {
+            documentService.cascadeDeleteByNotebook(notebook.getNotebookId());
+            notebook.softDelete();
+            notebookRepository.save(notebook);
+        }
     }
 
     private Notebook getActiveNotebook(Long notebookId) {

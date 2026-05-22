@@ -14,8 +14,6 @@ import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.LinkedHashSet;
@@ -37,31 +35,22 @@ public class QuizGenerationService {
     private final GeneratedQuizRepository generatedQuizRepository;
     private final EmbeddingSearchService embeddingSearchService;
     private final OllamaService ollamaService;
+    private final GenerationJobStatusManager statusManager;
 
     @Async
-    @Transactional
     public void runAsync(Long jobId) {
-        GenerationJob job = generationJobRepository.findById(jobId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.GENERATION_JOB_NOT_FOUND));
         try {
+            statusManager.markRunning(jobId);
+            GenerationJob job = generationJobRepository.findByIdWithDetails(jobId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.GENERATION_JOB_NOT_FOUND));
             run(job);
         } catch (Exception e) {
             log.error("Quiz generation failed. jobId={}", jobId, e);
-            markFailed(jobId);
+            statusManager.markFailed(jobId);
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markFailed(Long jobId) {
-        generationJobRepository.findById(jobId).ifPresent(job -> {
-            job.fail(0);
-            generationJobRepository.save(job);
-        });
-    }
-
     private void run(GenerationJob job) {
-        job.start();
-
         ResolvedPromptTemplate resolvedPromptTemplate = ResolvedPromptTemplate.from(job.getPromptTemplate());
 
         List<RetrievedSection> retrievedSections = embeddingSearchService.searchSimilarSections(
@@ -71,7 +60,7 @@ public class QuizGenerationService {
         );
 
         if (retrievedSections.isEmpty()) {
-            job.fail(0);
+            statusManager.markFailed(job.getJobId());
             return;
         }
 
@@ -87,7 +76,7 @@ public class QuizGenerationService {
                 job.getQuizCount()
         );
         List<GeneratedQuiz> savedQuizzes = generateAndSaveQuizzes(job, command, retrievedSections, retrievedSectionIds, resolvedPromptTemplate);
-        updateJobStatus(job, job.getQuizCount(), savedQuizzes.size());
+        updateJobStatus(job.getJobId(), job.getQuizCount(), savedQuizzes.size());
     }
 
     private List<GeneratedQuiz> generateAndSaveQuizzes(
@@ -152,13 +141,13 @@ public class QuizGenerationService {
         generationContextRepository.saveAll(contexts);
     }
 
-    private void updateJobStatus(GenerationJob job, int requestedCount, int savedCount) {
+    private void updateJobStatus(Long jobId, int requestedCount, int savedCount) {
         if (savedCount == requestedCount) {
-            job.complete(savedCount);
+            statusManager.markComplete(jobId, savedCount);
         } else if (savedCount > 0) {
-            job.partialComplete(savedCount);
+            statusManager.markPartialComplete(jobId, savedCount);
         } else {
-            job.fail(0);
+            statusManager.markFailed(jobId);
         }
     }
 

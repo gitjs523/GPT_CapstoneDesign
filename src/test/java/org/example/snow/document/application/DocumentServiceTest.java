@@ -118,13 +118,31 @@ class DocumentServiceTest {
         Document result = documentService.createDocument(1L, 10L, command);
 
         assertThat(result.getDocumentId()).isEqualTo(100L);
-        assertThat(result.getAnalysisStatus()).isEqualTo(AnalysisStatus.UPLOADED);
+        assertThat(result.getAnalysisStatus()).isEqualTo(AnalysisStatus.ANALYZING);
         assertThat(result.getOriginalFileName()).isEqualTo("lecture.pdf");
 
         // afterCommit 트리거 → analyzeAsync 호출 확인
         TransactionSynchronizationManager.getSynchronizations()
                 .forEach(TransactionSynchronization::afterCommit);
         verify(documentAnalysisService).analyzeAsync(100L, command);
+    }
+
+    @Test
+    void createDocument_throwsWhenUnsupportedFileType() {
+        Notebook notebook = createNotebook(1L, 10L);
+        when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
+
+        DocumentUploadCommand command = new DocumentUploadCommand(
+                new UploadedDocument("report.hwp", "application/x-hwp", "content".getBytes()),
+                ChunkStrategy.AUTO
+        );
+
+        assertThatThrownBy(() -> documentService.createDocument(1L, 10L, command))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.UNSUPPORTED_DOCUMENT_TYPE.getMessage());
+
+        verify(fileStorageService, never()).upload(any(), any(), any(), any());
+        verify(documentRepository, never()).save(any());
     }
 
     @Test

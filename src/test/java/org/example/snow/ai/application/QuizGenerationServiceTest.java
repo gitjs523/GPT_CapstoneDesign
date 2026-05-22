@@ -3,7 +3,6 @@ package org.example.snow.ai.application;
 import org.example.snow.ai.domain.GeneratedQuiz;
 import org.example.snow.ai.domain.GenerationContext;
 import org.example.snow.ai.domain.GenerationJob;
-import org.example.snow.ai.domain.GenerationJobStatus;
 import org.example.snow.ai.infra.GeneratedQuizRepository;
 import org.example.snow.ai.infra.GenerationContextRepository;
 import org.example.snow.ai.infra.GenerationJobRepository;
@@ -37,6 +36,7 @@ class QuizGenerationServiceTest {
     private final GeneratedQuizRepository generatedQuizRepository = mock(GeneratedQuizRepository.class);
     private final EmbeddingSearchService embeddingSearchService = mock(EmbeddingSearchService.class);
     private final OllamaService ollamaService = mock(OllamaService.class);
+    private final GenerationJobStatusManager statusManager = mock(GenerationJobStatusManager.class);
 
     private final QuizGenerationService quizGenerationService = new QuizGenerationService(
             generationJobRepository,
@@ -44,7 +44,8 @@ class QuizGenerationServiceTest {
             generationContextRepository,
             generatedQuizRepository,
             embeddingSearchService,
-            ollamaService
+            ollamaService,
+            statusManager
     );
 
     @Test
@@ -56,7 +57,7 @@ class QuizGenerationServiceTest {
                 "100", "RAG", "RAG는 검색 증강 생성이다.", "lecture.pdf", 1, 1, 1, 0.93
         );
 
-        when(generationJobRepository.findById(55L)).thenReturn(Optional.of(job));
+        when(generationJobRepository.findByIdWithDetails(55L)).thenReturn(Optional.of(job));
         when(embeddingSearchService.searchSimilarSections(10L, "RAG 단원", 8)).thenReturn(List.of(retrievedSection));
         when(sectionRepository.findAllById(List.of(100L))).thenReturn(List.of(section));
         when(ollamaService.generateQuiz(any()))
@@ -86,8 +87,9 @@ class QuizGenerationServiceTest {
         assertThat(promptCaptor.getAllValues())
                 .extracting(QuizGenerationPrompt::quizOrder)
                 .containsExactly(1, 2);
-        assertThat(job.getStatus()).isEqualTo(GenerationJobStatus.COMPLETED);
-        assertThat(job.getResultCount()).isEqualTo(2);
+
+        verify(statusManager).markRunning(55L);
+        verify(statusManager).markComplete(55L, 2);
     }
 
     @Test
@@ -95,12 +97,13 @@ class QuizGenerationServiceTest {
         Notebook notebook = createNotebook(1L, 10L);
         GenerationJob job = createJob(notebook, 55L, "없는 단원", 2);
 
-        when(generationJobRepository.findById(55L)).thenReturn(Optional.of(job));
+        when(generationJobRepository.findByIdWithDetails(55L)).thenReturn(Optional.of(job));
         when(embeddingSearchService.searchSimilarSections(10L, "없는 단원", 8)).thenReturn(List.of());
 
         quizGenerationService.runAsync(55L);
 
-        assertThat(job.getStatus()).isEqualTo(GenerationJobStatus.FAILED);
+        verify(statusManager).markRunning(55L);
+        verify(statusManager).markFailed(55L);
     }
 
     private Notebook createNotebook(Long userId, Long notebookId) {

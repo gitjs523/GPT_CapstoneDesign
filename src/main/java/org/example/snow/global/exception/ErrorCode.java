@@ -35,6 +35,8 @@ public enum ErrorCode {
     GENERATION_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_004", "생성 작업을 찾을 수 없습니다."),
     QUIZ_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_005", "퀴즈를 찾을 수 없습니다."),
     QUIZ_ACCESS_DENIED(HttpStatus.FORBIDDEN, "AI_006", "해당 퀴즈에 접근할 권한이 없습니다."),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "사용자를 찾을 수 없습니다."),
+    USER_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "USER_002", "회원 탈퇴 처리에 실패했습니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_001", "잘못된 요청입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_002", "서버 내부 오류가 발생했습니다.");
 
