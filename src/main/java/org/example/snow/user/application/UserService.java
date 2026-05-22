@@ -29,6 +29,8 @@ public class UserService {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
 
+        notebookService.validateNoneAnalyzingByUser(userId);
+
         LocalDateTime now = LocalDateTime.now();
         refreshTokenRepository.revokeAllActiveByUserId(userId, now);
         notebookService.cascadeDeleteByUser(userId);

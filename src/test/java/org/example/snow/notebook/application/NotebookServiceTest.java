@@ -16,6 +16,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -179,6 +180,20 @@ class NotebookServiceTest {
         assertThatThrownBy(() -> notebookService.deleteNotebook(1L, 10L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ErrorCode.NOTEBOOK_ACCESS_DENIED.getMessage());
+
+        verify(documentService, never()).cascadeDeleteByNotebook(any());
+    }
+
+    @Test
+    void deleteNotebook_throwsWhenAnalyzingDocumentExists() {
+        Notebook notebook = createNotebook(1L, 10L, "강의 노트");
+        when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
+        doThrow(new BusinessException(ErrorCode.DOCUMENT_ANALYZING))
+                .when(documentService).validateNoneAnalyzing(10L);
+
+        assertThatThrownBy(() -> notebookService.deleteNotebook(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.DOCUMENT_ANALYZING.getMessage());
 
         verify(documentService, never()).cascadeDeleteByNotebook(any());
     }

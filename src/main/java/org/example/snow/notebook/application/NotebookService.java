@@ -52,9 +52,14 @@ public class NotebookService {
     public void deleteNotebook(Long userId, Long notebookId) {
         Notebook notebook = getActiveNotebook(notebookId);
         validateOwnership(notebook, userId);
+        documentService.validateNoneAnalyzing(notebookId);
         documentService.cascadeDeleteByNotebook(notebookId);
         notebook.softDelete();
         notebookRepository.save(notebook);
+    }
+
+    public void validateNoneAnalyzingByUser(Long userId) {
+        documentService.validateNoneAnalyzingByUser(userId);
     }
 
     @Transactional
