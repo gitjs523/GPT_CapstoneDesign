@@ -58,7 +58,13 @@ public class DocumentAnalysisService {
 
         embeddingService.saveEmbeddings(savedChunks);
 
-        String summaryText = ollamaService.generateSummary(buildSummaryInput(result.sections()));
+        String summaryText = null;
+        try {
+            summaryText = ollamaService.generateSummary(buildSummaryInput(result.sections()));
+        } catch (Exception e) {
+            log.warn("Summary generation failed for documentId={}, completing without summary",
+                    document.getDocumentId(), e);
+        }
         statusManager.completeAnalysis(document.getDocumentId(), summaryText, result.extractedDocument().sourceUnits().size());
     }
 
@@ -108,6 +114,8 @@ public class DocumentAnalysisService {
                 return savedSections.get(i);
             }
         }
-        return savedSections.get(0);
+        throw new IllegalStateException(
+                "No parent section found for chunk sourceStartIndex=" + chunk.sourceStartIndex()
+        );
     }
 }

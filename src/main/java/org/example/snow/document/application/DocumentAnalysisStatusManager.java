@@ -36,6 +36,7 @@ public class DocumentAnalysisStatusManager {
             doc.failAnalysis(errorMessage);
             doc.softDelete();
             LocalDateTime now = LocalDateTime.now();
+            chunkRepository.nullEmbeddingByDocumentId(documentId);
             chunkRepository.softDeleteByDocumentId(documentId, now);
             sectionRepository.softDeleteByDocumentId(documentId, now);
             documentRepository.save(doc);

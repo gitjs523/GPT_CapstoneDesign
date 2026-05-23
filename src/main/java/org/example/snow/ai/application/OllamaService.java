@@ -103,15 +103,24 @@ public class OllamaService {
         """;
 
     public String generateSummary(String content) {
-    if (!StringUtils.hasText(content)) {
-        throw new IllegalArgumentException("문서 내용은 필수입니다.");
-    }
-
-    return chatClient.prompt()
-            .system(SUMMARY_SYSTEM_PROMPT)
-            .user(content.trim())
-            .call()
-            .content();
+        if (!StringUtils.hasText(content)) {
+            throw new IllegalArgumentException("문서 내용은 필수입니다.");
+        }
+        try {
+            String result = chatClient.prompt()
+                    .system(SUMMARY_SYSTEM_PROMPT)
+                    .user(content.trim())
+                    .call()
+                    .content();
+            if (!StringUtils.hasText(result)) {
+                throw new BusinessException(ErrorCode.AI_RESPONSE_GENERATION_FAILED);
+            }
+            return result;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new BusinessException(ErrorCode.AI_RESPONSE_GENERATION_FAILED, e);
+        }
     }
 
     public String generateSectionSummary(String topic, String content) {
