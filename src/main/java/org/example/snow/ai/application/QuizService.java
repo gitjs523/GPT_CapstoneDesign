@@ -84,6 +84,16 @@ public class QuizService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public GeneratedQuizResult getQuiz(Long userId, Long quizId) {
+        GeneratedQuiz quiz = generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(quizId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.QUIZ_NOT_FOUND));
+        if (!quiz.getGenerationJob().getUser().getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.QUIZ_ACCESS_DENIED);
+        }
+        return GeneratedQuizResult.from(quiz);
+    }
+
     private Notebook getNotebookWithOwnershipCheck(Long userId, Long notebookId) {
         Notebook notebook = notebookRepository.findByNotebookIdAndDeletedAtIsNull(notebookId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTEBOOK_NOT_FOUND));

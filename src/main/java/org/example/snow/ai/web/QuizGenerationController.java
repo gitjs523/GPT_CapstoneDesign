@@ -72,4 +72,14 @@ public class QuizGenerationController {
                 .toList();
         return ResponseEntity.ok(quizzes);
     }
+
+    @GetMapping("/quizzes/{quizId}")
+    public ResponseEntity<GeneratedQuizResponse> getQuiz(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @PathVariable Long quizId
+    ) {
+        return ResponseEntity.ok(GeneratedQuizResponse.from(
+                quizService.getQuiz(principal.userId(), quizId)
+        ));
+    }
 }
