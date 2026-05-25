@@ -8,6 +8,11 @@ import org.example.snow.ai.infra.GeneratedQuizRepository;
 import org.example.snow.ai.infra.GenerationJobRepository;
 import org.example.snow.ai.infra.PromptTemplateRepository;
 import org.example.snow.document.application.DocumentService;
+import org.example.snow.ai.application.QuizSourceResult;
+import org.example.snow.document.domain.Document;
+import org.example.snow.document.domain.ExtractedSection;
+import org.example.snow.document.domain.Section;
+import org.example.snow.document.domain.SourceUnitType;
 import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
@@ -224,6 +229,72 @@ class QuizServiceTest {
                 .hasMessage(ErrorCode.FORBIDDEN.getMessage());
     }
 
+    // ──────────────────────────── getQuizSources ─────────────────────────────
+
+    @Test
+    void getQuizSources_returnsSourcesInOriginalOrder() {
+        Notebook notebook = createNotebook(1L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        GeneratedQuiz quiz = createQuizWithSources(job, 901L, List.of(200L, 201L));
+        Section section1 = createSection(notebook, 200L, 30L, "lecture.pdf");
+        Section section2 = createSection(notebook, 201L, 30L, "lecture.pdf");
+
+        when(generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(901L)).thenReturn(Optional.of(quiz));
+        when(sectionRepository.findAllBySectionIdInAndDeletedAtIsNull(List.of(200L, 201L)))
+                .thenReturn(List.of(section2, section1));
+
+        List<QuizSourceResult> result = quizService.getQuizSources(1L, 901L);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).sectionId()).isEqualTo(200L);
+        assertThat(result.get(0).sourceDocumentId()).isEqualTo(30L);
+        assertThat(result.get(0).sourceDocumentName()).isEqualTo("lecture.pdf");
+        assertThat(result.get(1).sectionId()).isEqualTo(201L);
+    }
+
+    @Test
+    void getQuizSources_throwsWhenSourceSectionIdsIsNull() {
+        Notebook notebook = createNotebook(1L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        GeneratedQuiz quiz = createQuizWithSources(job, 901L, null);
+
+        when(generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(901L)).thenReturn(Optional.of(quiz));
+
+        assertThatThrownBy(() -> quizService.getQuizSources(1L, 901L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.QUIZ_SOURCE_UNAVAILABLE.getMessage());
+    }
+
+    @Test
+    void getQuizSources_throwsWhenNotOwner() {
+        Notebook notebook = createNotebook(2L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        GeneratedQuiz quiz = createQuizWithSources(job, 901L, List.of(200L));
+
+        when(generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(901L)).thenReturn(Optional.of(quiz));
+
+        assertThatThrownBy(() -> quizService.getQuizSources(1L, 901L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.QUIZ_ACCESS_DENIED.getMessage());
+    }
+
+    @Test
+    void getQuizSources_skipsDeletedSections() {
+        Notebook notebook = createNotebook(1L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        GeneratedQuiz quiz = createQuizWithSources(job, 901L, List.of(200L, 201L));
+        Section section1 = createSection(notebook, 200L, 30L, "lecture.pdf");
+
+        when(generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(901L)).thenReturn(Optional.of(quiz));
+        when(sectionRepository.findAllBySectionIdInAndDeletedAtIsNull(List.of(200L, 201L)))
+                .thenReturn(List.of(section1));
+
+        List<QuizSourceResult> result = quizService.getQuizSources(1L, 901L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).sectionId()).isEqualTo(200L);
+    }
+
     // ───────────────────────────── helpers ───────────────────────────────────
 
     private UserAccount createUser(Long userId) {
@@ -255,6 +326,25 @@ class QuizServiceTest {
         ReflectionTestUtils.setField(quiz, "quizId", quizId);
         ReflectionTestUtils.setField(quiz, "createdAt", LocalDateTime.of(2026, 5, 20, 10, quizOrder));
         return quiz;
+    }
+
+    private GeneratedQuiz createQuizWithSources(GenerationJob job, Long quizId, List<Long> sourceSectionIds) {
+        GeneratedQuiz quiz = GeneratedQuiz.create(
+                job, 1, "MULTIPLE_CHOICE", "문제",
+                "[\"보기1\",\"보기2\"]", "보기1", "해설", sourceSectionIds
+        );
+        ReflectionTestUtils.setField(quiz, "quizId", quizId);
+        return quiz;
+    }
+
+    private Section createSection(Notebook notebook, Long sectionId, Long documentId, String fileName) {
+        Document document = Document.create(notebook, fileName, fileName, "PDF", 100L);
+        ReflectionTestUtils.setField(document, "documentId", documentId);
+        Section section = Section.create(document, new ExtractedSection(
+                1, "제목", "내용", SourceUnitType.PAGE, 1, 1, List.of(1)
+        ));
+        ReflectionTestUtils.setField(section, "sectionId", sectionId);
+        return section;
     }
 
     private PromptTemplate createPromptTemplate() {

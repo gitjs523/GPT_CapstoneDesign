@@ -8,7 +8,7 @@ import org.example.snow.ai.application.QuizService;
 import org.example.snow.ai.web.dto.GeneratedQuizResponse;
 import org.example.snow.ai.web.dto.QuizGenerationJobResponse;
 import org.example.snow.ai.web.dto.QuizGenerationRequest;
-import org.example.snow.document.web.dto.SectionResponse;
+import org.example.snow.ai.web.dto.QuizSourceResponse;
 import org.example.snow.auth.security.AuthenticatedUserPrincipal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -84,15 +84,15 @@ public class QuizGenerationController {
         ));
     }
 
-    @GetMapping("/quizzes/{quizId}/source-sections")
-    public ResponseEntity<List<SectionResponse>> getQuizSourceSections(
+    @GetMapping("/quizzes/{quizId}/source")
+    public ResponseEntity<List<QuizSourceResponse>> getQuizSources(
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             @PathVariable Long quizId
     ) {
-        List<SectionResponse> sections = quizService.getQuizSourceSections(principal.userId(), quizId)
+        List<QuizSourceResponse> sources = quizService.getQuizSources(principal.userId(), quizId)
                 .stream()
-                .map(SectionResponse::from)
+                .map(QuizSourceResponse::from)
                 .toList();
-        return ResponseEntity.ok(sections);
+        return ResponseEntity.ok(sources);
     }
 }

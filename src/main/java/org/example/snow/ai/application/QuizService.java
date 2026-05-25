@@ -20,11 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -101,14 +102,16 @@ public class QuizService {
     }
 
     @Transactional(readOnly = true)
-    public List<Section> getQuizSourceSections(Long userId, Long quizId) {
+    public List<QuizSourceResult> getQuizSources(Long userId, Long quizId) {
         GeneratedQuiz quiz = getQuizWithOwnershipCheck(userId, quizId);
         List<Long> sourceSectionIds = quiz.getSourceSectionIds();
-
         if (sourceSectionIds == null) {
             throw new BusinessException(ErrorCode.QUIZ_SOURCE_UNAVAILABLE);
         }
 
+        Map<Long, Integer> orderBySectionId = IntStream.range(0, sourceSectionIds.size())
+                .boxed()
+                .collect(Collectors.toMap(sourceSectionIds::get, Function.identity(), Math::min));
         Map<Long, Section> sectionsById = sectionRepository
                 .findAllBySectionIdInAndDeletedAtIsNull(sourceSectionIds)
                 .stream()
@@ -117,7 +120,13 @@ public class QuizService {
         return sourceSectionIds.stream()
                 .distinct()
                 .map(sectionsById::get)
-                .filter(Objects::nonNull)
+                .filter(java.util.Objects::nonNull)
+                .sorted(Comparator.comparingInt(section -> orderBySectionId.get(section.getSectionId())))
+                .map(section -> new QuizSourceResult(
+                        section.getSectionId(),
+                        section.getDocument().getDocumentId(),
+                        section.getDocument().getOriginalFileName()
+                ))
                 .toList();
     }
 
