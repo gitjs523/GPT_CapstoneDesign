@@ -13,9 +13,13 @@ public record DocumentResponse(
         Long fileSize,
         Integer pageCount,
         AnalysisStatus analysisStatus,
+        String summaryText,
         LocalDateTime uploadedAt
 ) {
     public static DocumentResponse from(Document document) {
+        String summary = document.getAnalysisStatus() == AnalysisStatus.COMPLETED
+                ? document.getSummaryText()
+                : null;
         return new DocumentResponse(
                 document.getDocumentId(),
                 document.getNotebook().getNotebookId(),
@@ -24,6 +28,7 @@ public record DocumentResponse(
                 document.getFileSize(),
                 document.getPageCount(),
                 document.getAnalysisStatus(),
+                summary,
                 document.getUploadedAt()
         );
     }

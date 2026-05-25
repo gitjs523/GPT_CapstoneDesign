@@ -7,6 +7,7 @@ import org.example.snow.ai.domain.PromptTemplate;
 import org.example.snow.ai.infra.GeneratedQuizRepository;
 import org.example.snow.ai.infra.GenerationJobRepository;
 import org.example.snow.ai.infra.PromptTemplateRepository;
+import org.example.snow.document.application.DocumentService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.example.snow.notebook.domain.Notebook;
@@ -28,6 +29,7 @@ public class QuizService {
     private final GenerationJobRepository generationJobRepository;
     private final GeneratedQuizRepository generatedQuizRepository;
     private final QuizGenerationService quizGenerationService;
+    private final DocumentService documentService;
 
     @Value("${spring.ai.ollama.chat.options.model:unknown}")
     private String chatModelName;
@@ -35,6 +37,7 @@ public class QuizService {
     @Transactional
     public QuizGenerationJobResult requestGeneration(Long userId, Long notebookId, QuizGenerationCommand command) {
         Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
+        documentService.validateNoneAnalyzing(notebookId);
         PromptTemplate promptTemplate = promptTemplateRepository.findFirstByIsActiveTrueOrderByCreatedAtDesc()
                 .orElse(null);
 

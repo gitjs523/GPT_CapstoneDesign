@@ -46,6 +46,9 @@ public class QuizQaService {
         }
 
         GeneratedQuiz quiz = getQuizWithOwnershipCheck(userId, quizId);
+        if (quiz.getSourceSectionIds() == null) {
+            throw new BusinessException(ErrorCode.QUIZ_SOURCE_UNAVAILABLE);
+        }
         String trimmedQuestion = question.trim();
         List<RetrievedSection> sourceSections = loadSourceSections(quiz);
 
@@ -81,9 +84,6 @@ public class QuizQaService {
 
     private List<RetrievedSection> loadSourceSections(GeneratedQuiz quiz) {
         List<Long> sourceSectionIds = quiz.getSourceSectionIds();
-        if (sourceSectionIds == null || sourceSectionIds.isEmpty()) {
-            return List.of();
-        }
 
         Map<Long, Integer> orderBySectionId = IntStream.range(0, sourceSectionIds.size())
                 .boxed()
