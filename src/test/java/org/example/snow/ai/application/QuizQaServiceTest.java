@@ -11,6 +11,7 @@ import org.example.snow.document.domain.Section;
 import org.example.snow.document.domain.SourceUnitType;
 import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.global.exception.BusinessException;
+import org.example.snow.global.exception.ErrorCode;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.user.domain.UserAccount;
 import org.junit.jupiter.api.Test;
@@ -85,28 +86,18 @@ class QuizQaServiceTest {
     }
 
     @Test
-    void asksWithQuizOnlyWhenSourceSectionsAreEmpty() {
+    void throwsWhenSourceSectionIdsIsNull() {
         Notebook notebook = createNotebook(1L, 10L);
         GeneratedQuiz quiz = createQuiz(notebook, 51L, null);
 
         when(generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(51L)).thenReturn(Optional.of(quiz));
-        when(ollamaService.generateQuizAnswer(any()))
-                .thenReturn(new GeneratedAnswer("기존 해설에 따르면 문맥을 검색해서 답변하기 때문입니다.", List.of(), true));
-        when(quizQaHistoryRepository.save(any())).thenAnswer(invocation -> {
-            QuizQaHistory history = invocation.getArgument(0);
-            ReflectionTestUtils.setField(history, "qaHistoryId", 91L);
-            return history;
-        });
 
-        QuizQaResult result = quizQaService.ask(1L, 51L, "해설을 쉽게 말해줘");
+        assertThatThrownBy(() -> quizQaService.ask(1L, 51L, "해설을 쉽게 말해줘"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.QUIZ_SOURCE_UNAVAILABLE.getMessage());
 
-        ArgumentCaptor<QuizAnswerGenerationCommand> commandCaptor = ArgumentCaptor.forClass(QuizAnswerGenerationCommand.class);
-        verify(ollamaService).generateQuizAnswer(commandCaptor.capture());
-        verify(sectionRepository, never()).findAllBySectionIdInAndDeletedAtIsNull(any());
-
-        assertThat(commandCaptor.getValue().sourceSections()).isEmpty();
-        assertThat(result.qaHistoryId()).isEqualTo(91L);
-        assertThat(result.answerable()).isTrue();
+        verify(ollamaService, never()).generateQuizAnswer(any());
+        verify(quizQaHistoryRepository, never()).save(any());
     }
 
     @Test

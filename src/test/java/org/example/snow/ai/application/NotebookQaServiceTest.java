@@ -2,6 +2,7 @@ package org.example.snow.ai.application;
 
 import org.example.snow.ai.domain.NotebookQaHistory;
 import org.example.snow.ai.infra.NotebookQaHistoryRepository;
+import org.example.snow.document.application.DocumentService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.notebook.infra.NotebookRepository;
@@ -28,12 +29,14 @@ class NotebookQaServiceTest {
     private final EmbeddingSearchService embeddingSearchService = mock(EmbeddingSearchService.class);
     private final OllamaService ollamaService = mock(OllamaService.class);
     private final NotebookQaHistoryRepository notebookQaHistoryRepository = mock(NotebookQaHistoryRepository.class);
+    private final DocumentService documentService = mock(DocumentService.class);
 
     private final NotebookQaService notebookQaService = new NotebookQaService(
             notebookRepository,
             embeddingSearchService,
             ollamaService,
-            notebookQaHistoryRepository
+            notebookQaHistoryRepository,
+            documentService
     );
 
     @Test

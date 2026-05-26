@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -53,6 +54,21 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.withdraw(1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
+
+        verify(refreshTokenRepository, never()).revokeAllActiveByUserId(any(), any());
+        verify(notebookService, never()).cascadeDeleteByUser(any());
+    }
+
+    @Test
+    void withdraw_throwsWhenAnalyzingDocumentExists() {
+        UserAccount user = createUser(1L);
+        when(userAccountRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.DOCUMENT_ANALYZING))
+                .when(notebookService).validateNoneAnalyzingByUser(1L);
+
+        assertThatThrownBy(() -> userService.withdraw(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.DOCUMENT_ANALYZING.getMessage());
 
         verify(refreshTokenRepository, never()).revokeAllActiveByUserId(any(), any());
         verify(notebookService, never()).cascadeDeleteByUser(any());

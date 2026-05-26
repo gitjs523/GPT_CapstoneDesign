@@ -120,6 +120,20 @@ public class DocumentService {
         documentRepository.save(document);
     }
 
+    public void validateNoneAnalyzing(Long notebookId) {
+        if (documentRepository.existsByNotebook_NotebookIdAndAnalysisStatusAndDeletedAtIsNull(
+                notebookId, AnalysisStatus.ANALYZING)) {
+            throw new BusinessException(ErrorCode.DOCUMENT_ANALYZING);
+        }
+    }
+
+    public void validateNoneAnalyzingByUser(Long userId) {
+        if (documentRepository.existsByNotebook_User_UserIdAndAnalysisStatusAndDeletedAtIsNull(
+                userId, AnalysisStatus.ANALYZING)) {
+            throw new BusinessException(ErrorCode.DOCUMENT_ANALYZING);
+        }
+    }
+
     @Transactional
     public void cascadeDeleteByNotebook(Long notebookId) {
         LocalDateTime now = LocalDateTime.now();

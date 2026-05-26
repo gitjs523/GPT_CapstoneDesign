@@ -1,6 +1,7 @@
 package org.example.snow.document.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
@@ -14,6 +15,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -55,7 +57,8 @@ public class Chunk {
     @Column(name = "source_indices", columnDefinition = "integer[]")
     private List<Integer> sourceIndices;
 
-    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Convert(converter = FloatVectorConverter.class)
+    @ColumnTransformer(write = "?::vector")
     @Column(name = "embedding", columnDefinition = "vector(1024)")
     private float[] embedding;
 

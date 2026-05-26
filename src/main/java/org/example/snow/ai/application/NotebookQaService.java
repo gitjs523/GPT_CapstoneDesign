@@ -3,6 +3,7 @@ package org.example.snow.ai.application;
 import lombok.RequiredArgsConstructor;
 import org.example.snow.ai.domain.NotebookQaHistory;
 import org.example.snow.ai.infra.NotebookQaHistoryRepository;
+import org.example.snow.document.application.DocumentService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.example.snow.notebook.domain.Notebook;
@@ -27,6 +28,7 @@ public class NotebookQaService {
     private final EmbeddingSearchService embeddingSearchService;
     private final OllamaService ollamaService;
     private final NotebookQaHistoryRepository notebookQaHistoryRepository;
+    private final DocumentService documentService;
 
     @Transactional(readOnly = true)
     public List<NotebookQaHistoryResult> getHistories(Long userId, Long notebookId) {
@@ -45,6 +47,7 @@ public class NotebookQaService {
         }
 
         Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
+        documentService.validateNoneAnalyzing(notebookId);
         String trimmedQuestion = question.trim();
         List<RetrievedSection> retrievedSections = embeddingSearchService.searchSimilarSections(
                 notebookId,
