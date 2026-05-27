@@ -8,6 +8,7 @@ import org.example.snow.ai.infra.GeneratedQuizRepository;
 import org.example.snow.ai.infra.GenerationJobRepository;
 import org.example.snow.ai.infra.PromptTemplateRepository;
 import org.example.snow.document.application.DocumentService;
+import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.example.snow.notebook.domain.Notebook;
@@ -40,6 +41,7 @@ class QuizServiceTest {
     private final GeneratedQuizRepository generatedQuizRepository = mock(GeneratedQuizRepository.class);
     private final QuizGenerationService quizGenerationService = mock(QuizGenerationService.class);
     private final DocumentService documentService = mock(DocumentService.class);
+    private final SectionRepository sectionRepository = mock(SectionRepository.class);
 
     private final QuizService quizService = new QuizService(
             notebookRepository,
@@ -47,7 +49,8 @@ class QuizServiceTest {
             generationJobRepository,
             generatedQuizRepository,
             quizGenerationService,
-            documentService
+            documentService,
+            sectionRepository
     );
 
     @BeforeEach

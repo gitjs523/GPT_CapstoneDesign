@@ -8,6 +8,8 @@ import org.example.snow.ai.infra.GeneratedQuizRepository;
 import org.example.snow.ai.infra.GenerationJobRepository;
 import org.example.snow.ai.infra.PromptTemplateRepository;
 import org.example.snow.document.application.DocumentService;
+import org.example.snow.document.domain.Section;
+import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.example.snow.notebook.domain.Notebook;
@@ -19,6 +21,10 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +36,7 @@ public class QuizService {
     private final GeneratedQuizRepository generatedQuizRepository;
     private final QuizGenerationService quizGenerationService;
     private final DocumentService documentService;
+    private final SectionRepository sectionRepository;
 
     @Value("${spring.ai.ollama.chat.options.model:unknown}")
     private String chatModelName;
@@ -89,12 +96,38 @@ public class QuizService {
 
     @Transactional(readOnly = true)
     public GeneratedQuizResult getQuiz(Long userId, Long quizId) {
+        GeneratedQuiz quiz = getQuizWithOwnershipCheck(userId, quizId);
+        return GeneratedQuizResult.from(quiz);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Section> getQuizSourceSections(Long userId, Long quizId) {
+        GeneratedQuiz quiz = getQuizWithOwnershipCheck(userId, quizId);
+        List<Long> sourceSectionIds = quiz.getSourceSectionIds();
+
+        if (sourceSectionIds == null) {
+            throw new BusinessException(ErrorCode.QUIZ_SOURCE_UNAVAILABLE);
+        }
+
+        Map<Long, Section> sectionsById = sectionRepository
+                .findAllBySectionIdInAndDeletedAtIsNull(sourceSectionIds)
+                .stream()
+                .collect(Collectors.toMap(Section::getSectionId, Function.identity()));
+
+        return sourceSectionIds.stream()
+                .distinct()
+                .map(sectionsById::get)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private GeneratedQuiz getQuizWithOwnershipCheck(Long userId, Long quizId) {
         GeneratedQuiz quiz = generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(quizId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.QUIZ_NOT_FOUND));
         if (!quiz.getGenerationJob().getUser().getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.QUIZ_ACCESS_DENIED);
         }
-        return GeneratedQuizResult.from(quiz);
+        return quiz;
     }
 
     private Notebook getNotebookWithOwnershipCheck(Long userId, Long notebookId) {
