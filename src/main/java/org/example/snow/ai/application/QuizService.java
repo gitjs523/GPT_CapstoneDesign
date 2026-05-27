@@ -12,6 +12,7 @@ import org.example.snow.document.domain.Section;
 import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
+import org.example.snow.global.queue.ModelQueueService;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.notebook.infra.NotebookRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,8 +37,10 @@ public class QuizService {
     private final GenerationJobRepository generationJobRepository;
     private final GeneratedQuizRepository generatedQuizRepository;
     private final QuizGenerationService quizGenerationService;
+    private final GenerationJobStatusManager statusManager;
     private final DocumentService documentService;
     private final SectionRepository sectionRepository;
+    private final ModelQueueService modelQueueService;
 
     @Value("${spring.ai.ollama.chat.options.model:unknown}")
     private String chatModelName;
@@ -46,6 +49,11 @@ public class QuizService {
     public QuizGenerationJobResult requestGeneration(Long userId, Long notebookId, QuizGenerationCommand command) {
         Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
         documentService.validateNoneAnalyzing(notebookId);
+
+        if (!modelQueueService.canAcceptGeneration()) {
+            throw new BusinessException(ErrorCode.MODEL_QUEUE_FULL);
+        }
+
         PromptTemplate promptTemplate = promptTemplateRepository.findFirstByIsActiveTrueOrderByCreatedAtDesc()
                 .orElse(null);
 
@@ -64,7 +72,13 @@ public class QuizService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                quizGenerationService.runAsync(jobId);
+                boolean submitted = modelQueueService.submitGeneration(
+                        () -> quizGenerationService.run(jobId)
+                );
+                if (!submitted) {
+                    // canAcceptGeneration() 통과 후 극히 드문 race condition 대비
+                    statusManager.markFailed(jobId);
+                }
             }
         });
 

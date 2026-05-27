@@ -12,7 +12,6 @@ import org.example.snow.document.domain.Section;
 import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -37,20 +36,19 @@ public class QuizGenerationService {
     private final OllamaService ollamaService;
     private final GenerationJobStatusManager statusManager;
 
-    @Async
-    public void runAsync(Long jobId) {
+    public void run(Long jobId) {
         try {
             statusManager.markRunning(jobId);
             GenerationJob job = generationJobRepository.findByIdWithDetails(jobId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.GENERATION_JOB_NOT_FOUND));
-            run(job);
+            execute(job);
         } catch (Exception e) {
             log.error("Quiz generation failed. jobId={}", jobId, e);
             statusManager.markFailed(jobId);
         }
     }
 
-    private void run(GenerationJob job) {
+    private void execute(GenerationJob job) {
         ResolvedPromptTemplate resolvedPromptTemplate = ResolvedPromptTemplate.from(job.getPromptTemplate());
 
         List<RetrievedSection> retrievedSections = embeddingSearchService.searchSimilarSections(

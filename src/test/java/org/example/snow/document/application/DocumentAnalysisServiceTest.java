@@ -59,7 +59,7 @@ class DocumentAnalysisServiceTest {
     // ─────────────────────── 정상 흐름 ───────────────────────
 
     @Test
-    void analyzeAsync_정상흐름_모든_저장_호출_후_completeAnalysis_실행() {
+    void analyze_정상흐름_모든_저장_호출_후_completeAnalysis_실행() {
         Document document = createDocument(10L);
         DocumentUploadCommand command = createCommand();
         DocumentProcessingResult result = createResult(
@@ -73,7 +73,7 @@ class DocumentAnalysisServiceTest {
         when(chunkRepository.saveAll(any())).thenReturn(List.of());
         when(ollamaService.generateSummary(any())).thenReturn("요약 텍스트");
 
-        service.analyzeAsync(10L, command);
+        service.analyze(10L, command);
 
         verify(sourceUnitRepository).saveAll(any());
         verify(sectionRepository).saveAll(any());
@@ -84,7 +84,7 @@ class DocumentAnalysisServiceTest {
     }
 
     @Test
-    void analyzeAsync_요약생성_실패해도_null_summary로_completeAnalysis_호출() {
+    void analyze_요약생성_실패해도_null_summary로_completeAnalysis_호출() {
         Document document = createDocument(10L);
         DocumentUploadCommand command = createCommand();
         DocumentProcessingResult result = createResult(
@@ -98,7 +98,7 @@ class DocumentAnalysisServiceTest {
         when(chunkRepository.saveAll(any())).thenReturn(List.of());
         when(ollamaService.generateSummary(any())).thenThrow(new RuntimeException("LLM 호출 실패"));
 
-        service.analyzeAsync(10L, command);
+        service.analyze(10L, command);
 
         verify(statusManager).completeAnalysis(eq(10L), isNull(), eq(1));
         verify(statusManager, never()).markFailed(any(), any());
@@ -107,10 +107,10 @@ class DocumentAnalysisServiceTest {
     // ─────────────────────── 실패 흐름 ───────────────────────
 
     @Test
-    void analyzeAsync_document_없으면_markFailed_호출() {
+    void analyze_document_없으면_markFailed_호출() {
         when(documentRepository.findById(10L)).thenReturn(Optional.empty());
 
-        service.analyzeAsync(10L, createCommand());
+        service.analyze(10L, createCommand());
 
         verify(statusManager).markFailed(eq(10L), any());
         verify(documentIngestionService, never()).ingest(any());
@@ -118,12 +118,12 @@ class DocumentAnalysisServiceTest {
     }
 
     @Test
-    void analyzeAsync_ingest_실패시_markFailed_호출() {
+    void analyze_ingest_실패시_markFailed_호출() {
         Document document = createDocument(10L);
         when(documentRepository.findById(10L)).thenReturn(Optional.of(document));
         when(documentIngestionService.ingest(any())).thenThrow(new RuntimeException("텍스트 추출 실패"));
 
-        service.analyzeAsync(10L, createCommand());
+        service.analyze(10L, createCommand());
 
         verify(statusManager).markFailed(eq(10L), eq("텍스트 추출 실패"));
         verify(sectionRepository, never()).saveAll(any());
@@ -131,7 +131,7 @@ class DocumentAnalysisServiceTest {
     }
 
     @Test
-    void analyzeAsync_chunk의_sourceStartIndex가_어떤_section에도_없으면_markFailed_호출() {
+    void analyze_chunk의_sourceStartIndex가_어떤_section에도_없으면_markFailed_호출() {
         // extractedSection sourceIndices=[1] 인데 chunk sourceStartIndex=99 로 매핑 불가
         Document document = createDocument(10L);
         DocumentUploadCommand command = createCommand();
@@ -144,7 +144,7 @@ class DocumentAnalysisServiceTest {
         when(documentIngestionService.ingest(command)).thenReturn(result);
         when(sectionRepository.saveAll(any())).thenReturn(List.of(createSection(document, 100L)));
 
-        service.analyzeAsync(10L, command);
+        service.analyze(10L, command);
 
         verify(statusManager).markFailed(eq(10L), any());
         verify(statusManager, never()).completeAnalysis(any(), any(), anyInt());
@@ -153,7 +153,7 @@ class DocumentAnalysisServiceTest {
     // ─────────────────────── 매핑 검증 ───────────────────────
 
     @Test
-    void analyzeAsync_chunk이_sourceStartIndex_기준으로_올바른_parent_section에_매핑됨() {
+    void analyze_chunk이_sourceStartIndex_기준으로_올바른_parent_section에_매핑됨() {
         // chunk1(sourceStartIndex=1) → section1(sourceIndices=[1])
         // chunk2(sourceStartIndex=2) → section2(sourceIndices=[2])
         Document document = createDocument(10L);
@@ -171,7 +171,7 @@ class DocumentAnalysisServiceTest {
         when(chunkRepository.saveAll(any())).thenReturn(List.of());
         when(ollamaService.generateSummary(any())).thenReturn("요약");
 
-        service.analyzeAsync(10L, command);
+        service.analyze(10L, command);
 
         ArgumentCaptor<List<Chunk>> captor = ArgumentCaptor.forClass(List.class);
         verify(chunkRepository).saveAll(captor.capture());
@@ -182,7 +182,7 @@ class DocumentAnalysisServiceTest {
     }
 
     @Test
-    void analyzeAsync_chunk이_여러_sourceIndices를_가진_section에도_올바르게_매핑됨() {
+    void analyze_chunk이_여러_sourceIndices를_가진_section에도_올바르게_매핑됨() {
         // section1이 page 1,2 양쪽을 포함 — chunk(sourceStartIndex=2)도 section1에 매핑
         Document document = createDocument(10L);
         DocumentUploadCommand command = createCommand();
@@ -198,7 +198,7 @@ class DocumentAnalysisServiceTest {
         when(chunkRepository.saveAll(any())).thenReturn(List.of());
         when(ollamaService.generateSummary(any())).thenReturn("요약");
 
-        service.analyzeAsync(10L, command);
+        service.analyze(10L, command);
 
         ArgumentCaptor<List<Chunk>> captor = ArgumentCaptor.forClass(List.class);
         verify(chunkRepository).saveAll(captor.capture());

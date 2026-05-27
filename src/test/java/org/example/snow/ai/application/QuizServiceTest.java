@@ -16,6 +16,7 @@ import org.example.snow.document.domain.SourceUnitType;
 import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
+import org.example.snow.global.queue.ModelQueueService;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.notebook.infra.NotebookRepository;
 import org.example.snow.user.domain.UserAccount;
@@ -45,8 +46,10 @@ class QuizServiceTest {
     private final GenerationJobRepository generationJobRepository = mock(GenerationJobRepository.class);
     private final GeneratedQuizRepository generatedQuizRepository = mock(GeneratedQuizRepository.class);
     private final QuizGenerationService quizGenerationService = mock(QuizGenerationService.class);
+    private final GenerationJobStatusManager statusManager = mock(GenerationJobStatusManager.class);
     private final DocumentService documentService = mock(DocumentService.class);
     private final SectionRepository sectionRepository = mock(SectionRepository.class);
+    private final ModelQueueService modelQueueService = mock(ModelQueueService.class);
 
     private final QuizService quizService = new QuizService(
             notebookRepository,
@@ -54,14 +57,21 @@ class QuizServiceTest {
             generationJobRepository,
             generatedQuizRepository,
             quizGenerationService,
+            statusManager,
             documentService,
-            sectionRepository
+            sectionRepository,
+            modelQueueService
     );
 
     @BeforeEach
     void initTransactionSync() {
         ReflectionTestUtils.setField(quizService, "chatModelName", "qwen3:4b-q4_K_M");
         TransactionSynchronizationManager.initSynchronization();
+        when(modelQueueService.canAcceptGeneration()).thenReturn(true);
+        when(modelQueueService.submitGeneration(any())).thenAnswer(inv -> {
+            ((Runnable) inv.getArgument(0)).run();
+            return true;
+        });
     }
 
     @AfterEach
@@ -92,10 +102,10 @@ class QuizServiceTest {
         assertThat(result.status()).isEqualTo(GenerationJobStatus.QUEUED);
         assertThat(result.quizzes()).isEmpty();
 
-        // afterCommit 트리거 → runAsync 호출 확인
+        // afterCommit 트리거 → submitGeneration 내 람다 실행 → run 호출 확인
         TransactionSynchronizationManager.getSynchronizations()
                 .forEach(TransactionSynchronization::afterCommit);
-        verify(quizGenerationService).runAsync(55L);
+        verify(quizGenerationService).run(55L);
     }
 
     @Test

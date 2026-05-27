@@ -76,7 +76,7 @@ class QuizGenerationServiceTest {
             return quiz;
         });
 
-        quizGenerationService.runAsync(55L);
+        quizGenerationService.run(55L);
 
         ArgumentCaptor<Iterable<GenerationContext>> contextCaptor = ArgumentCaptor.forClass(Iterable.class);
         ArgumentCaptor<QuizGenerationPrompt> promptCaptor = ArgumentCaptor.forClass(QuizGenerationPrompt.class);
@@ -100,7 +100,7 @@ class QuizGenerationServiceTest {
         when(generationJobRepository.findByIdWithDetails(55L)).thenReturn(Optional.of(job));
         when(embeddingSearchService.searchSimilarSections(10L, "없는 단원", 8)).thenReturn(List.of());
 
-        quizGenerationService.runAsync(55L);
+        quizGenerationService.run(55L);
 
         verify(statusManager).markRunning(55L);
         verify(statusManager).markFailed(55L);

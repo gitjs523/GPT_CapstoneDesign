@@ -16,6 +16,7 @@ import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.document.application.port.FileStorageService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
+import org.example.snow.global.queue.ModelQueueService;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.notebook.infra.NotebookRepository;
 import org.example.snow.user.domain.UserAccount;
@@ -44,7 +45,9 @@ class DocumentServiceTest {
     private final SectionRepository sectionRepository = mock(SectionRepository.class);
     private final ChunkRepository chunkRepository = mock(ChunkRepository.class);
     private final DocumentAnalysisService documentAnalysisService = mock(DocumentAnalysisService.class);
+    private final DocumentAnalysisStatusManager statusManager = mock(DocumentAnalysisStatusManager.class);
     private final FileStorageService fileStorageService = mock(FileStorageService.class);
+    private final ModelQueueService modelQueueService = mock(ModelQueueService.class);
     private final GeneratedQuizRepository generatedQuizRepository = mock(GeneratedQuizRepository.class);
     private final GenerationJobRepository generationJobRepository = mock(GenerationJobRepository.class);
     private final QuizQaHistoryRepository quizQaHistoryRepository = mock(QuizQaHistoryRepository.class);
@@ -56,7 +59,9 @@ class DocumentServiceTest {
             sectionRepository,
             chunkRepository,
             documentAnalysisService,
+            statusManager,
             fileStorageService,
+            modelQueueService,
             generatedQuizRepository,
             generationJobRepository,
             quizQaHistoryRepository,
@@ -66,6 +71,11 @@ class DocumentServiceTest {
     @BeforeEach
     void initTransactionSync() {
         TransactionSynchronizationManager.initSynchronization();
+        when(modelQueueService.canAcceptEmbedding()).thenReturn(true);
+        when(modelQueueService.submitEmbedding(any())).thenAnswer(inv -> {
+            ((Runnable) inv.getArgument(0)).run();
+            return true;
+        });
     }
 
     @AfterEach
@@ -121,10 +131,10 @@ class DocumentServiceTest {
         assertThat(result.getAnalysisStatus()).isEqualTo(AnalysisStatus.ANALYZING);
         assertThat(result.getOriginalFileName()).isEqualTo("lecture.pdf");
 
-        // afterCommit 트리거 → analyzeAsync 호출 확인
+        // afterCommit 트리거 → submitEmbedding 내 람다 실행 → analyze 호출 확인
         TransactionSynchronizationManager.getSynchronizations()
                 .forEach(TransactionSynchronization::afterCommit);
-        verify(documentAnalysisService).analyzeAsync(100L, command);
+        verify(documentAnalysisService).analyze(100L, command);
     }
 
     @Test
