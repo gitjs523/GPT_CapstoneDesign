@@ -92,6 +92,10 @@ public class Document {
         this.analysisStartedAt = LocalDateTime.now();
     }
 
+    public void startSummarizing() {
+        this.analysisStatus = AnalysisStatus.SUMMARIZING;
+    }
+
     public void completeAnalysis(int pageCount) {
         this.analysisStatus = AnalysisStatus.COMPLETED;
         this.pageCount = pageCount;

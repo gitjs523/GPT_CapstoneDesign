@@ -46,19 +46,20 @@ public class StartupRecoveryRunner implements ApplicationRunner {
     }
 
     /**
-     * ANALYZING 상태로 중단된 문서를 FAILED + soft delete 처리한다.
+     * ANALYZING / SUMMARIZING 상태로 중단된 문서를 FAILED + soft delete 처리한다.
      * DocumentAnalysisStatusManager.markFailed()를 재사용하므로
      * section/chunk soft delete 및 embedding NULL 초기화도 함께 수행된다.
      */
     private void recoverAnalyzingDocuments() {
         List<Document> stuck = documentRepository
-                .findAllByAnalysisStatusAndDeletedAtIsNull(AnalysisStatus.ANALYZING);
+                .findAllByAnalysisStatusInAndDeletedAtIsNull(
+                        List.of(AnalysisStatus.ANALYZING, AnalysisStatus.SUMMARIZING));
 
         if (stuck.isEmpty()) {
             return;
         }
 
-        log.warn("[startup-recovery] ANALYZING 상태 문서 {}개 감지 — FAILED 처리 시작", stuck.size());
+        log.warn("[startup-recovery] ANALYZING/SUMMARIZING 상태 문서 {}개 감지 — FAILED 처리 시작", stuck.size());
         for (Document doc : stuck) {
             try {
                 documentAnalysisStatusManager.markFailed(doc.getDocumentId(), DOCUMENT_RECOVERY_REASON);

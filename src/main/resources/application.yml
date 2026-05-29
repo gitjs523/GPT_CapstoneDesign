@@ -39,6 +39,9 @@ spring:
       mode: never
 
 ollama:
+  chat:
+    connect-timeout-seconds: ${OLLAMA_CHAT_CONNECT_TIMEOUT:5}
+    read-timeout-seconds: ${OLLAMA_CHAT_READ_TIMEOUT:180}
   embedding:
     url: ${OLLAMA_EMBEDDING_URL:http://localhost:11434}
     model: ${OLLAMA_EMBEDDING_MODEL:qwen3-embedding:0.6b}
