@@ -1,34 +1,31 @@
 package org.example.snow.ai.application;
 
 import lombok.RequiredArgsConstructor;
-import org.example.snow.ai.domain.NotebookQaHistory;
+import lombok.extern.slf4j.Slf4j;
 import org.example.snow.ai.infra.NotebookQaHistoryRepository;
 import org.example.snow.document.application.DocumentService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
+import org.example.snow.global.queue.ModelQueueService;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.notebook.infra.NotebookRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotebookQaService {
 
-    private static final int RETRIEVAL_LIMIT = 5;
-    private static final String NO_CONTEXT_ANSWER = "질문에 답변할 수 있는 문서 근거를 찾지 못했습니다.";
-
     private final NotebookRepository notebookRepository;
-    private final EmbeddingSearchService embeddingSearchService;
-    private final OllamaService ollamaService;
     private final NotebookQaHistoryRepository notebookQaHistoryRepository;
     private final DocumentService documentService;
+    private final ModelQueueService modelQueueService;
+    private final QaJobStore qaJobStore;
+    private final NotebookQaProcessor notebookQaProcessor;
 
     @Transactional(readOnly = true)
     public List<NotebookQaHistoryResult> getHistories(Long userId, Long notebookId) {
@@ -40,46 +37,55 @@ public class NotebookQaService {
                 .toList();
     }
 
-    @Transactional
-    public NotebookQaResult ask(Long userId, Long notebookId, String question) {
+    /**
+     * 질문을 생성 큐에 등록하고 QaJob을 반환한다.
+     * 실제 처리(임베딩 검색, LLM 호출, 이력 저장)는 큐 executor 스레드에서 비동기로 수행된다.
+     */
+    @Transactional(readOnly = true)
+    public QaJob ask(Long userId, Long notebookId, String question) {
         if (!StringUtils.hasText(question)) {
-            throw new IllegalArgumentException("질문은 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
-        Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
+        getNotebookWithOwnershipCheck(userId, notebookId);
         documentService.validateNoneAnalyzing(notebookId);
+
+        if (!modelQueueService.canAcceptGeneration()) {
+            throw new BusinessException(ErrorCode.MODEL_QUEUE_FULL);
+        }
+
+        QaJob qaJob = qaJobStore.create(userId, notebookId);
+        String qaJobId = qaJob.getQaJobId();
         String trimmedQuestion = question.trim();
-        List<RetrievedSection> retrievedSections = embeddingSearchService.searchSimilarSections(
-                notebookId,
-                trimmedQuestion,
-                RETRIEVAL_LIMIT
-        );
 
-        GeneratedAnswer generatedAnswer = retrievedSections.isEmpty()
-                ? new GeneratedAnswer(NO_CONTEXT_ANSWER, List.of(), false)
-                : ollamaService.generateGroundedAnswer(new AnswerGenerationCommand(trimmedQuestion, retrievedSections));
+        boolean submitted = modelQueueService.submitGeneration(() -> {
+            try {
+                qaJobStore.markRunning(qaJobId);
+                NotebookQaResult result = notebookQaProcessor.process(userId, notebookId, trimmedQuestion);
+                qaJobStore.markCompleted(qaJobId, result);
+            } catch (Exception e) {
+                log.error("Q&A 처리 실패 qaJobId={} notebookId={}", qaJobId, notebookId, e);
+                qaJobStore.markFailed(qaJobId);
+            }
+        });
 
-        List<Long> citedSectionIds = generatedAnswer.answerable()
-                ? extractValidCitedSectionIds(generatedAnswer, retrievedSections)
-                : List.of();
+        if (!submitted) {
+            // canAcceptGeneration() 통과 후 극히 드문 race condition 대비
+            qaJobStore.markFailed(qaJobId);
+            throw new BusinessException(ErrorCode.MODEL_QUEUE_FULL);
+        }
 
-        NotebookQaHistory history = notebookQaHistoryRepository.save(NotebookQaHistory.create(
-                notebook.getUser(),
-                notebook,
-                trimmedQuestion,
-                generatedAnswer.answer(),
-                generatedAnswer.answerable(),
-                citedSectionIds
-        ));
-
-        return new NotebookQaResult(
-                history.getQaHistoryId(),
-                generatedAnswer.answer(),
-                generatedAnswer.answerable(),
-                citedSectionIds
-        );
+        return qaJob;
     }
 
+    /**
+     * 클라이언트 polling용 — QaJob 상태 및 결과 조회.
+     */
+    public QaJob getQaJob(Long userId, Long notebookId, String qaJobId) {
+        return qaJobStore.getWithOwnershipCheck(qaJobId, userId, notebookId);
+    }
+
+    @Transactional(readOnly = true)
     private Notebook getNotebookWithOwnershipCheck(Long userId, Long notebookId) {
         Notebook notebook = notebookRepository.findByNotebookIdAndDeletedAtIsNull(notebookId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTEBOOK_NOT_FOUND));
@@ -87,32 +93,5 @@ public class NotebookQaService {
             throw new BusinessException(ErrorCode.NOTEBOOK_ACCESS_DENIED);
         }
         return notebook;
-    }
-
-    private List<Long> extractValidCitedSectionIds(GeneratedAnswer generatedAnswer, List<RetrievedSection> retrievedSections) {
-        Set<Long> retrievedSectionIds = retrievedSections.stream()
-                .map(RetrievedSection::sectionId)
-                .map(this::parseSectionId)
-                .filter(Objects::nonNull)
-                .collect(java.util.stream.Collectors.toSet());
-
-        Set<Long> citedSectionIds = generatedAnswer.citedSectionIds().stream()
-                .map(this::parseSectionId)
-                .filter(Objects::nonNull)
-                .filter(retrievedSectionIds::contains)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-
-        return List.copyOf(citedSectionIds);
-    }
-
-    private Long parseSectionId(String sectionId) {
-        if (!StringUtils.hasText(sectionId)) {
-            return null;
-        }
-        try {
-            return Long.valueOf(sectionId.trim());
-        } catch (NumberFormatException exception) {
-            return null;
-        }
     }
 }

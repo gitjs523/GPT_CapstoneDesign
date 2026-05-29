@@ -14,6 +14,7 @@ import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.document.application.port.FileStorageService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
+import org.example.snow.global.queue.ModelQueueService;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.notebook.infra.NotebookRepository;
 import org.springframework.stereotype.Service;
@@ -33,7 +34,9 @@ public class DocumentService {
     private final SectionRepository sectionRepository;
     private final ChunkRepository chunkRepository;
     private final DocumentAnalysisService documentAnalysisService;
+    private final DocumentAnalysisStatusManager statusManager;
     private final FileStorageService fileStorageService;
+    private final ModelQueueService modelQueueService;
     private final GeneratedQuizRepository generatedQuizRepository;
     private final GenerationJobRepository generationJobRepository;
     private final QuizQaHistoryRepository quizQaHistoryRepository;
@@ -48,6 +51,11 @@ public class DocumentService {
     @Transactional
     public Document createDocument(Long userId, Long notebookId, DocumentUploadCommand command) {
         Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
+
+        if (!modelQueueService.canAcceptEmbedding()) {
+            throw new BusinessException(ErrorCode.MODEL_QUEUE_FULL);
+        }
+
         UploadedDocument file = command.file();
         String fileType = resolveFileType(file.contentType(), file.originalFilename());
         if ("UNKNOWN".equals(fileType)) {
@@ -67,7 +75,13 @@ public class DocumentService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                documentAnalysisService.analyzeAsync(savedId, command);
+                boolean submitted = modelQueueService.submitEmbedding(
+                        () -> documentAnalysisService.analyze(savedId, command)
+                );
+                if (!submitted) {
+                    // canAcceptEmbedding() 통과 후 극히 드문 race condition 대비
+                    statusManager.markFailed(savedId, "임베딩 큐가 가득 찼습니다.");
+                }
             }
         });
         return saved;

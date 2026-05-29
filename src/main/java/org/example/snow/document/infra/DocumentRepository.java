@@ -21,6 +21,8 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     boolean existsByNotebook_User_UserIdAndAnalysisStatusAndDeletedAtIsNull(Long userId, AnalysisStatus analysisStatus);
 
+    List<Document> findAllByAnalysisStatusAndDeletedAtIsNull(AnalysisStatus analysisStatus);
+
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Document d SET d.deletedAt = :now WHERE d.notebook.notebookId = :notebookId AND d.deletedAt IS NULL")
     void softDeleteByNotebookId(@Param("notebookId") Long notebookId, @Param("now") LocalDateTime now);

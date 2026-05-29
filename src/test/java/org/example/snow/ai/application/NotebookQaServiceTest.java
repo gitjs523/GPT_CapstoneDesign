@@ -4,11 +4,13 @@ import org.example.snow.ai.domain.NotebookQaHistory;
 import org.example.snow.ai.infra.NotebookQaHistoryRepository;
 import org.example.snow.document.application.DocumentService;
 import org.example.snow.global.exception.BusinessException;
+import org.example.snow.global.exception.ErrorCode;
+import org.example.snow.global.queue.ModelQueueService;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.notebook.infra.NotebookRepository;
 import org.example.snow.user.domain.UserAccount;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -18,6 +20,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,89 +29,80 @@ import static org.mockito.Mockito.when;
 class NotebookQaServiceTest {
 
     private final NotebookRepository notebookRepository = mock(NotebookRepository.class);
-    private final EmbeddingSearchService embeddingSearchService = mock(EmbeddingSearchService.class);
-    private final OllamaService ollamaService = mock(OllamaService.class);
     private final NotebookQaHistoryRepository notebookQaHistoryRepository = mock(NotebookQaHistoryRepository.class);
     private final DocumentService documentService = mock(DocumentService.class);
+    private final ModelQueueService modelQueueService = mock(ModelQueueService.class);
+    private final QaJobStore qaJobStore = mock(QaJobStore.class);
+    private final NotebookQaProcessor notebookQaProcessor = mock(NotebookQaProcessor.class);
 
     private final NotebookQaService notebookQaService = new NotebookQaService(
             notebookRepository,
-            embeddingSearchService,
-            ollamaService,
             notebookQaHistoryRepository,
-            documentService
+            documentService,
+            modelQueueService,
+            qaJobStore,
+            notebookQaProcessor
     );
 
+    @BeforeEach
+    void setUp() {
+        when(modelQueueService.canAcceptGeneration()).thenReturn(true);
+        when(modelQueueService.submitGeneration(any())).thenReturn(true);
+    }
+
+    // ───────────────────────────── ask ───────────────────────────────────────
+
     @Test
-    void asksWithRetrievedSectionsAndSavesHistory() {
+    void ask_returnsQueuedJobAndSubmitsProcessingToQueue() {
         Notebook notebook = createNotebook(1L, 10L);
-        RetrievedSection section = new RetrievedSection(
-                "100",
-                "RAG",
-                "RAG는 검색된 문맥을 기반으로 답변한다.",
-                "lecture.pdf",
-                1,
-                2,
-                1,
-                0.91
-        );
-
+        QaJob qaJob = new QaJob("test-uuid", 1L, 10L);
         when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
-        when(embeddingSearchService.searchSimilarSections(10L, "RAG가 뭐야?", 5)).thenReturn(List.of(section));
-        when(ollamaService.generateGroundedAnswer(any()))
-                .thenReturn(new GeneratedAnswer("RAG는 검색 문맥을 근거로 답변하는 방식입니다.", List.of("100"), true));
-        when(notebookQaHistoryRepository.save(any())).thenAnswer(invocation -> {
-            NotebookQaHistory history = invocation.getArgument(0);
-            ReflectionTestUtils.setField(history, "qaHistoryId", 77L);
-            return history;
-        });
+        when(qaJobStore.create(1L, 10L)).thenReturn(qaJob);
 
-        NotebookQaResult result = notebookQaService.ask(1L, 10L, " RAG가 뭐야? ");
+        QaJob result = notebookQaService.ask(1L, 10L, " RAG가 뭐야? ");
 
-        ArgumentCaptor<AnswerGenerationCommand> commandCaptor = ArgumentCaptor.forClass(AnswerGenerationCommand.class);
-        ArgumentCaptor<NotebookQaHistory> historyCaptor = ArgumentCaptor.forClass(NotebookQaHistory.class);
-        verify(ollamaService).generateGroundedAnswer(commandCaptor.capture());
-        verify(notebookQaHistoryRepository).save(historyCaptor.capture());
-
-        assertThat(commandCaptor.getValue().question()).isEqualTo("RAG가 뭐야?");
-        assertThat(commandCaptor.getValue().sections()).containsExactly(section);
-
-        NotebookQaHistory savedHistory = historyCaptor.getValue();
-        assertThat(savedHistory.getUserQuestion()).isEqualTo("RAG가 뭐야?");
-        assertThat(savedHistory.getAiAnswer()).isEqualTo("RAG는 검색 문맥을 근거로 답변하는 방식입니다.");
-        assertThat(savedHistory.isAnswerable()).isTrue();
-        assertThat(savedHistory.getCitedSectionIds()).containsExactly(100L);
-
-        assertThat(result.qaHistoryId()).isEqualTo(77L);
-        assertThat(result.answer()).isEqualTo("RAG는 검색 문맥을 근거로 답변하는 방식입니다.");
-        assertThat(result.answerable()).isTrue();
-        assertThat(result.citedSectionIds()).containsExactly(100L);
+        assertThat(result).isSameAs(qaJob);
+        assertThat(result.getStatus()).isEqualTo(QaJobStatus.QUEUED);
+        verify(qaJobStore).create(1L, 10L);
+        verify(modelQueueService).submitGeneration(any());
     }
 
     @Test
-    void savesUnanswerableHistoryWhenNoContextIsFound() {
-        Notebook notebook = createNotebook(1L, 10L);
+    void ask_throwsWhenQuestionIsBlank() {
+        assertThatThrownBy(() -> notebookQaService.ask(1L, 10L, "   "))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.INVALID_REQUEST.getMessage());
 
-        when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
-        when(embeddingSearchService.searchSimilarSections(10L, "없는 내용?", 5)).thenReturn(List.of());
-        when(notebookQaHistoryRepository.save(any())).thenAnswer(invocation -> {
-            NotebookQaHistory history = invocation.getArgument(0);
-            ReflectionTestUtils.setField(history, "qaHistoryId", 78L);
-            return history;
-        });
-
-        NotebookQaResult result = notebookQaService.ask(1L, 10L, "없는 내용?");
-
-        ArgumentCaptor<NotebookQaHistory> historyCaptor = ArgumentCaptor.forClass(NotebookQaHistory.class);
-        verify(ollamaService, never()).generateGroundedAnswer(any());
-        verify(notebookQaHistoryRepository).save(historyCaptor.capture());
-
-        assertThat(historyCaptor.getValue().isAnswerable()).isFalse();
-        assertThat(historyCaptor.getValue().getCitedSectionIds()).isNull();
-        assertThat(result.qaHistoryId()).isEqualTo(78L);
-        assertThat(result.answerable()).isFalse();
-        assertThat(result.citedSectionIds()).isEmpty();
+        verify(qaJobStore, never()).create(anyLong(), anyLong());
     }
+
+    @Test
+    void ask_throwsWhenQueueFull() {
+        Notebook notebook = createNotebook(1L, 10L);
+        when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
+        when(modelQueueService.canAcceptGeneration()).thenReturn(false);
+
+        assertThatThrownBy(() -> notebookQaService.ask(1L, 10L, "질문"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.MODEL_QUEUE_FULL.getMessage());
+
+        verify(qaJobStore, never()).create(anyLong(), anyLong());
+    }
+
+    @Test
+    void ask_throwsWhenNotebookNotOwnedByUser() {
+        Notebook notebook = createNotebook(2L, 10L);
+        when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
+
+        assertThatThrownBy(() -> notebookQaService.ask(1L, 10L, "질문"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("해당 노트북에 접근할 권한이 없습니다.");
+
+        verify(qaJobStore, never()).create(anyLong(), anyLong());
+        verify(notebookQaProcessor, never()).process(any(), any(), any());
+    }
+
+    // ─────────────────────────── getHistories ────────────────────────────────
 
     @Test
     void returnsNotebookQaHistories() {
@@ -138,19 +132,7 @@ class NotebookQaServiceTest {
         assertThat(histories.get(1).createdAt()).isEqualTo(secondCreatedAt);
     }
 
-    @Test
-    void rejectsNotebookOwnedByAnotherUser() {
-        Notebook notebook = createNotebook(2L, 10L);
-
-        when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
-
-        assertThatThrownBy(() -> notebookQaService.ask(1L, 10L, "질문"))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("해당 노트북에 접근할 권한이 없습니다.");
-
-        verify(embeddingSearchService, never()).searchSimilarSections(any(), any(), any(Integer.class));
-        verify(notebookQaHistoryRepository, never()).save(any());
-    }
+    // ───────────────────────────── helpers ───────────────────────────────────
 
     private Notebook createNotebook(Long userId, Long notebookId) {
         UserAccount user = UserAccount.create("user" + userId + "@example.com", "hash");

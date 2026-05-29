@@ -41,6 +41,10 @@ cloud:
     s3:
       bucket: ${S3_BUCKET_NAME:test-bucket}
 
+model-queue:
+  embedding-capacity: 5
+  generation-capacity: 10
+
 auth:
   jwt:
     issuer: snow-test

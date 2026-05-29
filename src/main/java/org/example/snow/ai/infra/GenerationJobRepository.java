@@ -1,6 +1,7 @@
 package org.example.snow.ai.infra;
 
 import org.example.snow.ai.domain.GenerationJob;
+import org.example.snow.ai.domain.GenerationJobStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -14,6 +15,8 @@ public interface GenerationJobRepository extends JpaRepository<GenerationJob, Lo
 
     Optional<GenerationJob> findByJobIdAndDeletedAtIsNull(Long jobId);
     List<GenerationJob> findAllByNotebook_NotebookIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long notebookId);
+
+    List<GenerationJob> findAllByStatusInAndDeletedAtIsNull(List<GenerationJobStatus> statuses);
 
     @Query("SELECT j FROM GenerationJob j LEFT JOIN FETCH j.notebook LEFT JOIN FETCH j.promptTemplate WHERE j.jobId = :jobId")
     Optional<GenerationJob> findByIdWithDetails(@Param("jobId") Long jobId);

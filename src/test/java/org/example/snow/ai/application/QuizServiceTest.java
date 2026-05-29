@@ -8,8 +8,15 @@ import org.example.snow.ai.infra.GeneratedQuizRepository;
 import org.example.snow.ai.infra.GenerationJobRepository;
 import org.example.snow.ai.infra.PromptTemplateRepository;
 import org.example.snow.document.application.DocumentService;
+import org.example.snow.ai.application.QuizSourceResult;
+import org.example.snow.document.domain.Document;
+import org.example.snow.document.domain.ExtractedSection;
+import org.example.snow.document.domain.Section;
+import org.example.snow.document.domain.SourceUnitType;
+import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
+import org.example.snow.global.queue.ModelQueueService;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.notebook.infra.NotebookRepository;
 import org.example.snow.user.domain.UserAccount;
@@ -39,7 +46,10 @@ class QuizServiceTest {
     private final GenerationJobRepository generationJobRepository = mock(GenerationJobRepository.class);
     private final GeneratedQuizRepository generatedQuizRepository = mock(GeneratedQuizRepository.class);
     private final QuizGenerationService quizGenerationService = mock(QuizGenerationService.class);
+    private final GenerationJobStatusManager statusManager = mock(GenerationJobStatusManager.class);
     private final DocumentService documentService = mock(DocumentService.class);
+    private final SectionRepository sectionRepository = mock(SectionRepository.class);
+    private final ModelQueueService modelQueueService = mock(ModelQueueService.class);
 
     private final QuizService quizService = new QuizService(
             notebookRepository,
@@ -47,13 +57,21 @@ class QuizServiceTest {
             generationJobRepository,
             generatedQuizRepository,
             quizGenerationService,
-            documentService
+            statusManager,
+            documentService,
+            sectionRepository,
+            modelQueueService
     );
 
     @BeforeEach
     void initTransactionSync() {
         ReflectionTestUtils.setField(quizService, "chatModelName", "qwen3:4b-q4_K_M");
         TransactionSynchronizationManager.initSynchronization();
+        when(modelQueueService.canAcceptGeneration()).thenReturn(true);
+        when(modelQueueService.submitGeneration(any())).thenAnswer(inv -> {
+            ((Runnable) inv.getArgument(0)).run();
+            return true;
+        });
     }
 
     @AfterEach
@@ -84,10 +102,10 @@ class QuizServiceTest {
         assertThat(result.status()).isEqualTo(GenerationJobStatus.QUEUED);
         assertThat(result.quizzes()).isEmpty();
 
-        // afterCommit 트리거 → runAsync 호출 확인
+        // afterCommit 트리거 → submitGeneration 내 람다 실행 → run 호출 확인
         TransactionSynchronizationManager.getSynchronizations()
                 .forEach(TransactionSynchronization::afterCommit);
-        verify(quizGenerationService).runAsync(55L);
+        verify(quizGenerationService).run(55L);
     }
 
     @Test
@@ -221,6 +239,72 @@ class QuizServiceTest {
                 .hasMessage(ErrorCode.FORBIDDEN.getMessage());
     }
 
+    // ──────────────────────────── getQuizSources ─────────────────────────────
+
+    @Test
+    void getQuizSources_returnsSourcesInOriginalOrder() {
+        Notebook notebook = createNotebook(1L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        GeneratedQuiz quiz = createQuizWithSources(job, 901L, List.of(200L, 201L));
+        Section section1 = createSection(notebook, 200L, 30L, "lecture.pdf");
+        Section section2 = createSection(notebook, 201L, 30L, "lecture.pdf");
+
+        when(generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(901L)).thenReturn(Optional.of(quiz));
+        when(sectionRepository.findAllBySectionIdInAndDeletedAtIsNull(List.of(200L, 201L)))
+                .thenReturn(List.of(section2, section1));
+
+        List<QuizSourceResult> result = quizService.getQuizSources(1L, 901L);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).sectionId()).isEqualTo(200L);
+        assertThat(result.get(0).sourceDocumentId()).isEqualTo(30L);
+        assertThat(result.get(0).sourceDocumentName()).isEqualTo("lecture.pdf");
+        assertThat(result.get(1).sectionId()).isEqualTo(201L);
+    }
+
+    @Test
+    void getQuizSources_throwsWhenSourceSectionIdsIsNull() {
+        Notebook notebook = createNotebook(1L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        GeneratedQuiz quiz = createQuizWithSources(job, 901L, null);
+
+        when(generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(901L)).thenReturn(Optional.of(quiz));
+
+        assertThatThrownBy(() -> quizService.getQuizSources(1L, 901L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.QUIZ_SOURCE_UNAVAILABLE.getMessage());
+    }
+
+    @Test
+    void getQuizSources_throwsWhenNotOwner() {
+        Notebook notebook = createNotebook(2L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        GeneratedQuiz quiz = createQuizWithSources(job, 901L, List.of(200L));
+
+        when(generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(901L)).thenReturn(Optional.of(quiz));
+
+        assertThatThrownBy(() -> quizService.getQuizSources(1L, 901L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.QUIZ_ACCESS_DENIED.getMessage());
+    }
+
+    @Test
+    void getQuizSources_skipsDeletedSections() {
+        Notebook notebook = createNotebook(1L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        GeneratedQuiz quiz = createQuizWithSources(job, 901L, List.of(200L, 201L));
+        Section section1 = createSection(notebook, 200L, 30L, "lecture.pdf");
+
+        when(generatedQuizRepository.findByQuizIdAndDeletedAtIsNull(901L)).thenReturn(Optional.of(quiz));
+        when(sectionRepository.findAllBySectionIdInAndDeletedAtIsNull(List.of(200L, 201L)))
+                .thenReturn(List.of(section1));
+
+        List<QuizSourceResult> result = quizService.getQuizSources(1L, 901L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).sectionId()).isEqualTo(200L);
+    }
+
     // ───────────────────────────── helpers ───────────────────────────────────
 
     private UserAccount createUser(Long userId) {
@@ -252,6 +336,25 @@ class QuizServiceTest {
         ReflectionTestUtils.setField(quiz, "quizId", quizId);
         ReflectionTestUtils.setField(quiz, "createdAt", LocalDateTime.of(2026, 5, 20, 10, quizOrder));
         return quiz;
+    }
+
+    private GeneratedQuiz createQuizWithSources(GenerationJob job, Long quizId, List<Long> sourceSectionIds) {
+        GeneratedQuiz quiz = GeneratedQuiz.create(
+                job, 1, "MULTIPLE_CHOICE", "문제",
+                "[\"보기1\",\"보기2\"]", "보기1", "해설", sourceSectionIds
+        );
+        ReflectionTestUtils.setField(quiz, "quizId", quizId);
+        return quiz;
+    }
+
+    private Section createSection(Notebook notebook, Long sectionId, Long documentId, String fileName) {
+        Document document = Document.create(notebook, fileName, fileName, "PDF", 100L);
+        ReflectionTestUtils.setField(document, "documentId", documentId);
+        Section section = Section.create(document, new ExtractedSection(
+                1, "제목", "내용", SourceUnitType.PAGE, 1, 1, List.of(1)
+        ));
+        ReflectionTestUtils.setField(section, "sectionId", sectionId);
+        return section;
     }
 
     private PromptTemplate createPromptTemplate() {

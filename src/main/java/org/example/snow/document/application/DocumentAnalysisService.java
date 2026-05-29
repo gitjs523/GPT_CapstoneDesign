@@ -17,7 +17,6 @@ import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.document.infra.SourceUnitRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -37,19 +36,18 @@ public class DocumentAnalysisService {
     private final EmbeddingService embeddingService;
     private final DocumentAnalysisStatusManager statusManager;
 
-    @Async
-    public void analyzeAsync(Long documentId, DocumentUploadCommand command) {
+    public void analyze(Long documentId, DocumentUploadCommand command) {
         try {
             Document document = documentRepository.findById(documentId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
-            analyze(document, command);
+            analyzeInternal(document, command);
         } catch (Exception e) {
             log.error("Document analysis failed for documentId={}", documentId, e);
             statusManager.markFailed(documentId, e.getMessage());
         }
     }
 
-    private void analyze(Document document, DocumentUploadCommand command) {
+    private void analyzeInternal(Document document, DocumentUploadCommand command) {
         DocumentProcessingResult result = documentIngestionService.ingest(command);
 
         saveSourceUnits(document, result.extractedDocument());
