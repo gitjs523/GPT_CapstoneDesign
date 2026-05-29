@@ -11,6 +11,7 @@ import org.example.snow.document.domain.Section;
 import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.document.infra.DocumentRepository;
 import org.example.snow.document.infra.SectionRepository;
+import org.example.snow.document.infra.SourceUnitRepository;
 import org.example.snow.document.application.port.FileStorageService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
@@ -31,6 +32,7 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final NotebookRepository notebookRepository;
+    private final SourceUnitRepository sourceUnitRepository;
     private final SectionRepository sectionRepository;
     private final ChunkRepository chunkRepository;
     private final DocumentAnalysisService documentAnalysisService;
@@ -125,6 +127,7 @@ public class DocumentService {
         }
 
         LocalDateTime now = LocalDateTime.now();
+        sourceUnitRepository.deleteAllByDocumentId(documentId);
         chunkRepository.nullEmbeddingByDocumentId(documentId);
         chunkRepository.softDeleteByDocumentId(documentId, now);
         sectionRepository.softDeleteByDocumentId(documentId, now);
@@ -151,6 +154,7 @@ public class DocumentService {
     @Transactional
     public void cascadeDeleteByNotebook(Long notebookId) {
         LocalDateTime now = LocalDateTime.now();
+        sourceUnitRepository.deleteAllByNotebookId(notebookId);
         chunkRepository.nullEmbeddingByNotebookId(notebookId);
         chunkRepository.softDeleteByNotebookId(notebookId, now);
         sectionRepository.softDeleteByNotebookId(notebookId, now);
