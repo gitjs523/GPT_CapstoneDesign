@@ -45,6 +45,10 @@ model-queue:
   embedding-capacity: 5
   generation-capacity: 10
 
+qa-job:
+  retention-minutes: 30
+  cleanup-interval-ms: 600000
+
 auth:
   jwt:
     issuer: snow-test
