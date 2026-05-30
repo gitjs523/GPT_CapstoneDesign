@@ -13,6 +13,7 @@ import org.example.snow.ai.web.dto.QuizSourceResponse;
 import org.example.snow.auth.security.AuthenticatedUserPrincipal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,6 +50,15 @@ public class QuizGenerationController {
         return ResponseEntity.ok(QuizGenerationJobResponse.from(
                 quizService.getJob(principal.userId(), jobId)
         ));
+    }
+
+    @DeleteMapping("/quiz-jobs/{jobId}")
+    public ResponseEntity<Void> deleteQuizJob(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @PathVariable Long jobId
+    ) {
+        quizService.deleteJob(principal.userId(), jobId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/notebooks/{notebookId}/quiz-jobs")

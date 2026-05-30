@@ -37,6 +37,7 @@ public enum ErrorCode {
     QUIZ_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_005", "퀴즈를 찾을 수 없습니다."),
     QUIZ_ACCESS_DENIED(HttpStatus.FORBIDDEN, "AI_006", "해당 퀴즈에 접근할 권한이 없습니다."),
     QUIZ_SOURCE_UNAVAILABLE(HttpStatus.CONFLICT, "AI_007", "원본 문서가 삭제되어 해설 근거를 조회할 수 없습니다."),
+    GENERATION_JOB_IN_PROGRESS(HttpStatus.CONFLICT, "AI_008", "생성 진행 중인 작업은 삭제할 수 없습니다. 완료 후 삭제해주세요."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "사용자를 찾을 수 없습니다."),
     USER_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "USER_002", "회원 탈퇴 처리에 실패했습니다."),
     MODEL_QUEUE_FULL(HttpStatus.SERVICE_UNAVAILABLE, "QUEUE_001", "처리 대기 중인 요청이 많습니다. 잠시 후 다시 시도해주세요."),

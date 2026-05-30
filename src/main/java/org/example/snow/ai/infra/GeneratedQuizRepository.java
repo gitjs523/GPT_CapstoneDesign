@@ -17,6 +17,10 @@ public interface GeneratedQuizRepository extends JpaRepository<GeneratedQuiz, Lo
     List<GeneratedQuiz> findAllByGenerationJob_JobIdAndDeletedAtIsNullOrderByQuizOrderAsc(Long jobId);
 
     @Modifying(clearAutomatically = true)
+    @Query("UPDATE GeneratedQuiz q SET q.deletedAt = :now WHERE q.generationJob.jobId = :jobId AND q.deletedAt IS NULL")
+    void softDeleteByJobId(@Param("jobId") Long jobId, @Param("now") LocalDateTime now);
+
+    @Modifying(clearAutomatically = true)
     @Query(value = """
             UPDATE generated_quiz SET deleted_at = :now
             WHERE deleted_at IS NULL
