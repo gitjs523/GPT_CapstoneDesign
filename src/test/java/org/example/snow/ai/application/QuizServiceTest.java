@@ -7,6 +7,7 @@ import org.example.snow.ai.domain.PromptTemplate;
 import org.example.snow.ai.infra.GeneratedQuizRepository;
 import org.example.snow.ai.infra.GenerationJobRepository;
 import org.example.snow.ai.infra.PromptTemplateRepository;
+import org.example.snow.ai.infra.QuizQaHistoryRepository;
 import org.example.snow.document.application.DocumentService;
 import org.example.snow.ai.application.QuizSourceResult;
 import org.example.snow.document.domain.Document;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,6 +52,7 @@ class QuizServiceTest {
     private final DocumentService documentService = mock(DocumentService.class);
     private final SectionRepository sectionRepository = mock(SectionRepository.class);
     private final ModelQueueService modelQueueService = mock(ModelQueueService.class);
+    private final QuizQaHistoryRepository quizQaHistoryRepository = mock(QuizQaHistoryRepository.class);
 
     private final QuizService quizService = new QuizService(
             notebookRepository,
@@ -60,7 +63,8 @@ class QuizServiceTest {
             statusManager,
             documentService,
             sectionRepository,
-            modelQueueService
+            modelQueueService,
+            quizQaHistoryRepository
     );
 
     @BeforeEach
@@ -303,6 +307,63 @@ class QuizServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).sectionId()).isEqualTo(200L);
+    }
+
+    // ──────────────────────────────── deleteJob ──────────────────────────────
+
+    @Test
+    void deleteJob_softDeletesTerminalJobWithCascade() {
+        Notebook notebook = createNotebook(1L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        job.start();
+        job.complete(2);
+        when(generationJobRepository.findByJobIdAndDeletedAtIsNull(55L)).thenReturn(Optional.of(job));
+
+        quizService.deleteJob(1L, 55L);
+
+        verify(quizQaHistoryRepository).softDeleteByJobId(eq(55L), any());
+        verify(generatedQuizRepository).softDeleteByJobId(eq(55L), any());
+        verify(generationJobRepository).save(job);
+        assertThat(job.isDeleted()).isTrue();
+    }
+
+    @Test
+    void deleteJob_throwsWhenInProgress() {
+        Notebook notebook = createNotebook(1L, 10L);
+        GenerationJob job = createJob(notebook, 55L); // 기본 상태 QUEUED
+        when(generationJobRepository.findByJobIdAndDeletedAtIsNull(55L)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> quizService.deleteJob(1L, 55L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.GENERATION_JOB_IN_PROGRESS.getMessage());
+
+        verify(generatedQuizRepository, never()).softDeleteByJobId(any(), any());
+        verify(quizQaHistoryRepository, never()).softDeleteByJobId(any(), any());
+        assertThat(job.isDeleted()).isFalse();
+    }
+
+    @Test
+    void deleteJob_throwsWhenNotOwner() {
+        Notebook notebook = createNotebook(2L, 10L);
+        GenerationJob job = createJob(notebook, 55L);
+        job.start();
+        job.complete(1);
+        when(generationJobRepository.findByJobIdAndDeletedAtIsNull(55L)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> quizService.deleteJob(1L, 55L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.FORBIDDEN.getMessage());
+
+        verify(generatedQuizRepository, never()).softDeleteByJobId(any(), any());
+    }
+
+    @Test
+    void deleteJob_throwsWhenJobNotFound() {
+        when(generationJobRepository.findByJobIdAndDeletedAtIsNull(55L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> quizService.deleteJob(1L, 55L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.GENERATION_JOB_NOT_FOUND.getMessage());
     }
 
     // ───────────────────────────── helpers ───────────────────────────────────

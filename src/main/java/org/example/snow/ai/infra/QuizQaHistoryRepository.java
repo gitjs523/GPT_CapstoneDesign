@@ -27,4 +27,15 @@ public interface QuizQaHistoryRepository extends JpaRepository<QuizQaHistory, Lo
               )
             """, nativeQuery = true)
     void softDeleteByNotebookId(@Param("notebookId") Long notebookId, @Param("now") LocalDateTime now);
+
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            UPDATE quiz_qa_history SET deleted_at = :now
+            WHERE deleted_at IS NULL
+              AND quiz_id IN (
+                  SELECT q.quiz_id FROM generated_quiz q
+                  WHERE q.job_id = :jobId
+              )
+            """, nativeQuery = true)
+    void softDeleteByJobId(@Param("jobId") Long jobId, @Param("now") LocalDateTime now);
 }

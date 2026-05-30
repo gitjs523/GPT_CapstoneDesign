@@ -15,6 +15,7 @@ import org.example.snow.document.infra.DocumentRepository;
 import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.document.infra.SourceUnitRepository;
 import org.example.snow.embedding.application.EmbeddingService;
+import org.example.snow.global.exception.ErrorCode;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.user.domain.UserAccount;
 import org.junit.jupiter.api.Test;
@@ -114,6 +115,26 @@ class DocumentAnalysisServiceTest {
 
         verify(statusManager).markFailed(eq(10L), any());
         verify(documentIngestionService, never()).ingest(any());
+        verify(statusManager, never()).completeAnalysis(any(), any(), anyInt());
+    }
+
+    @Test
+    void analyze_section이_0개이면_DOCUMENT_EMPTY_CONTENT로_markFailed_호출() {
+        Document document = createDocument(10L);
+        DocumentUploadCommand command = createCommand();
+        DocumentProcessingResult result = createResult(
+                List.of(sourceUnit(1), sourceUnit(2)),
+                List.of(),   // 섹션 0개 — 전체 공백 문서
+                List.of()
+        );
+        when(documentRepository.findById(10L)).thenReturn(Optional.of(document));
+        when(documentIngestionService.ingest(command)).thenReturn(result);
+
+        service.analyze(10L, command);
+
+        verify(statusManager).markFailed(eq(10L), eq(ErrorCode.DOCUMENT_EMPTY_CONTENT.getMessage()));
+        verify(sourceUnitRepository, never()).saveAll(any());
+        verify(sectionRepository, never()).saveAll(any());
         verify(statusManager, never()).completeAnalysis(any(), any(), anyInt());
     }
 

@@ -11,6 +11,7 @@ import org.example.snow.document.domain.Section;
 import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.document.infra.DocumentRepository;
 import org.example.snow.document.infra.SectionRepository;
+import org.example.snow.document.infra.SourceUnitRepository;
 import org.example.snow.document.application.port.FileStorageService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
@@ -31,6 +32,7 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final NotebookRepository notebookRepository;
+    private final SourceUnitRepository sourceUnitRepository;
     private final SectionRepository sectionRepository;
     private final ChunkRepository chunkRepository;
     private final DocumentAnalysisService documentAnalysisService;
@@ -120,11 +122,13 @@ public class DocumentService {
         getNotebookWithOwnershipCheck(userId, notebookId);
         Document document = getActiveDocumentWithNotebookCheck(documentId, notebookId);
 
-        if (document.getAnalysisStatus() == AnalysisStatus.ANALYZING) {
+        if (document.getAnalysisStatus() == AnalysisStatus.ANALYZING
+                || document.getAnalysisStatus() == AnalysisStatus.SUMMARIZING) {
             throw new BusinessException(ErrorCode.DOCUMENT_ANALYZING);
         }
 
         LocalDateTime now = LocalDateTime.now();
+        sourceUnitRepository.deleteAllByDocumentId(documentId);
         chunkRepository.nullEmbeddingByDocumentId(documentId);
         chunkRepository.softDeleteByDocumentId(documentId, now);
         sectionRepository.softDeleteByDocumentId(documentId, now);
@@ -135,22 +139,26 @@ public class DocumentService {
     }
 
     public void validateNoneAnalyzing(Long notebookId) {
-        if (documentRepository.existsByNotebook_NotebookIdAndAnalysisStatusAndDeletedAtIsNull(
-                notebookId, AnalysisStatus.ANALYZING)) {
+        if (documentRepository.existsByNotebook_NotebookIdAndAnalysisStatusInAndDeletedAtIsNull(
+                notebookId, IN_PROGRESS_STATUSES)) {
             throw new BusinessException(ErrorCode.DOCUMENT_ANALYZING);
         }
     }
 
     public void validateNoneAnalyzingByUser(Long userId) {
-        if (documentRepository.existsByNotebook_User_UserIdAndAnalysisStatusAndDeletedAtIsNull(
-                userId, AnalysisStatus.ANALYZING)) {
+        if (documentRepository.existsByNotebook_User_UserIdAndAnalysisStatusInAndDeletedAtIsNull(
+                userId, IN_PROGRESS_STATUSES)) {
             throw new BusinessException(ErrorCode.DOCUMENT_ANALYZING);
         }
     }
 
+    private static final java.util.Set<AnalysisStatus> IN_PROGRESS_STATUSES =
+            java.util.Set.of(AnalysisStatus.ANALYZING, AnalysisStatus.SUMMARIZING);
+
     @Transactional
     public void cascadeDeleteByNotebook(Long notebookId) {
         LocalDateTime now = LocalDateTime.now();
+        sourceUnitRepository.deleteAllByNotebookId(notebookId);
         chunkRepository.nullEmbeddingByNotebookId(notebookId);
         chunkRepository.softDeleteByNotebookId(notebookId, now);
         sectionRepository.softDeleteByNotebookId(notebookId, now);

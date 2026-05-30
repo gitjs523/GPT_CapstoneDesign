@@ -13,6 +13,7 @@ import org.example.snow.ai.infra.QuizQaHistoryRepository;
 import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.document.infra.DocumentRepository;
 import org.example.snow.document.infra.SectionRepository;
+import org.example.snow.document.infra.SourceUnitRepository;
 import org.example.snow.document.application.port.FileStorageService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
@@ -50,12 +51,14 @@ class DocumentServiceTest {
     private final ModelQueueService modelQueueService = mock(ModelQueueService.class);
     private final GeneratedQuizRepository generatedQuizRepository = mock(GeneratedQuizRepository.class);
     private final GenerationJobRepository generationJobRepository = mock(GenerationJobRepository.class);
+    private final SourceUnitRepository sourceUnitRepository = mock(SourceUnitRepository.class);
     private final QuizQaHistoryRepository quizQaHistoryRepository = mock(QuizQaHistoryRepository.class);
     private final NotebookQaHistoryRepository notebookQaHistoryRepository = mock(NotebookQaHistoryRepository.class);
 
     private final DocumentService documentService = new DocumentService(
             documentRepository,
             notebookRepository,
+            sourceUnitRepository,
             sectionRepository,
             chunkRepository,
             documentAnalysisService,

@@ -6,6 +6,7 @@ import org.example.snow.document.domain.Document;
 import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.document.infra.DocumentRepository;
 import org.example.snow.document.infra.SectionRepository;
+import org.example.snow.document.infra.SourceUnitRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,8 +19,17 @@ import java.time.LocalDateTime;
 public class DocumentAnalysisStatusManager {
 
     private final DocumentRepository documentRepository;
+    private final SourceUnitRepository sourceUnitRepository;
     private final ChunkRepository chunkRepository;
     private final SectionRepository sectionRepository;
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markSummarizing(Long documentId) {
+        documentRepository.findById(documentId).ifPresent(doc -> {
+            doc.startSummarizing();
+            documentRepository.save(doc);
+        });
+    }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void completeAnalysis(Long documentId, String summaryText, int pageCount) {
@@ -36,6 +46,7 @@ public class DocumentAnalysisStatusManager {
             doc.failAnalysis(errorMessage);
             doc.softDelete();
             LocalDateTime now = LocalDateTime.now();
+            sourceUnitRepository.deleteAllByDocumentId(documentId);
             chunkRepository.nullEmbeddingByDocumentId(documentId);
             chunkRepository.softDeleteByDocumentId(documentId, now);
             sectionRepository.softDeleteByDocumentId(documentId, now);

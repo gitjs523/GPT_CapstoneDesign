@@ -50,11 +50,16 @@ public class DocumentAnalysisService {
     private void analyzeInternal(Document document, DocumentUploadCommand command) {
         DocumentProcessingResult result = documentIngestionService.ingest(command);
 
+        if (result.sections().isEmpty()) {
+            throw new BusinessException(ErrorCode.DOCUMENT_EMPTY_CONTENT);
+        }
+
         saveSourceUnits(document, result.extractedDocument());
         List<Section> savedSections = saveSections(document, result.sections());
         List<Chunk> savedChunks = saveChunks(document, savedSections, result.sections(), result.chunks());
 
         embeddingService.saveEmbeddings(savedChunks);
+        statusManager.markSummarizing(document.getDocumentId());
 
         String summaryText = null;
         try {
