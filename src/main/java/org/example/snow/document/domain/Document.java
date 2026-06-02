@@ -1,6 +1,7 @@
 package org.example.snow.document.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -16,6 +17,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.snow.global.text.ControlCharSanitizingConverter;
 import org.example.snow.notebook.domain.Notebook;
 
 import java.time.LocalDateTime;
@@ -54,9 +56,11 @@ public class Document {
     @Column(name = "analysis_status", nullable = false, length = 20)
     private AnalysisStatus analysisStatus;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(name = "summary_text", columnDefinition = "text")
     private String summaryText;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(name = "analysis_error_message", columnDefinition = "text")
     private String analysisErrorMessage;
 

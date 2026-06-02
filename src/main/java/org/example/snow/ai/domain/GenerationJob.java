@@ -1,6 +1,7 @@
 package org.example.snow.ai.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -16,6 +17,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.snow.global.text.ControlCharSanitizingConverter;
 import org.example.snow.notebook.domain.Notebook;
 import org.example.snow.user.domain.UserAccount;
 
@@ -44,6 +46,7 @@ public class GenerationJob {
     @JoinColumn(name = "prompt_template_id", foreignKey = @ForeignKey(name = "fk_generation_job_prompt_template"))
     private PromptTemplate promptTemplate;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(name = "scope_text", columnDefinition = "text")
     private String scopeText;
 
