@@ -1,8 +1,9 @@
 package org.example.snow.document.application;
 
 import lombok.RequiredArgsConstructor;
+import org.example.snow.document.application.chunking.BoilerplateFilter;
+import org.example.snow.document.application.chunking.DocumentTitleResolver;
 import org.example.snow.document.application.port.TextExtractor;
-import org.example.snow.document.domain.ChunkStrategy;
 import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.ExtractedDocument;
 import org.example.snow.document.domain.ExtractedSection;
@@ -20,30 +21,35 @@ public class DocumentIngestionService {
     private final List<TextExtractor> textExtractors;
     private final TextPreprocessor textPreprocessor;
     private final ChunkingService chunkingService;
+    private final BoilerplateFilter boilerplateFilter;
+    private final DocumentTitleResolver documentTitleResolver;
 
     public DocumentProcessingResult ingest(DocumentUploadCommand command) {
         UploadedDocument file = validateFile(command);
         TextExtractor extractor = resolveExtractor(file);
         ExtractedDocument extractedDocument = extractor.extract(file);
         ExtractedDocument preprocessedDocument = preprocess(extractedDocument);
-        ChunkStrategy appliedStrategy = chunkingService.resolveStrategy(
-                preprocessedDocument.sourceType(),
-                command.chunkStrategy()
-        );
-        List<ExtractedSection> sections = chunkingService.buildSections(preprocessedDocument);
-        List<ExtractedChunk> chunks = chunkingService.chunk(preprocessedDocument, sections, appliedStrategy);
-        String preprocessedText = joinSourceUnits(preprocessedDocument.sourceUnits());
+
+        // 반복 머리말/꼬리말·페이지 번호 제거 (Section 경계 오염 방지)
+        BoilerplateFilter.Result filtered = boilerplateFilter.filter(preprocessedDocument.sourceUnits());
+        ExtractedDocument cleanedDocument = preprocessedDocument.withSourceUnits(filtered.units());
+
+        List<ExtractedSection> sections = chunkingService.buildSections(cleanedDocument);
+        List<ExtractedChunk> chunks = chunkingService.chunk(sections);
+        String preprocessedText = joinSourceUnits(cleanedDocument.sourceUnits());
+        String docTitle = documentTitleResolver.resolve(
+                filtered.repeatedLines(), sections, cleanedDocument.originalFilename());
 
         return new DocumentProcessingResult(
-                preprocessedDocument.originalFilename(),
-                preprocessedDocument.contentType(),
-                appliedStrategy,
-                preprocessedDocument.sourceUnits().size(),
+                cleanedDocument.originalFilename(),
+                cleanedDocument.contentType(),
+                docTitle,
+                cleanedDocument.sourceUnits().size(),
                 sections.size(),
                 chunks.size(),
                 preprocessedText.length(),
                 preprocessedText,
-                preprocessedDocument,
+                cleanedDocument,
                 sections,
                 chunks
         );

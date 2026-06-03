@@ -2,7 +2,6 @@ package org.example.snow.document.application;
 
 import org.example.snow.ai.application.OllamaService;
 import org.example.snow.document.domain.Chunk;
-import org.example.snow.document.domain.ChunkStrategy;
 import org.example.snow.document.domain.Document;
 import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.ExtractedDocument;
@@ -249,8 +248,7 @@ class DocumentAnalysisServiceTest {
 
     private DocumentUploadCommand createCommand() {
         return new DocumentUploadCommand(
-                new UploadedDocument("lecture.pdf", "application/pdf", "content".getBytes()),
-                ChunkStrategy.AUTO
+                new UploadedDocument("lecture.pdf", "application/pdf", "content".getBytes())
         );
     }
 
@@ -281,7 +279,7 @@ class DocumentAnalysisServiceTest {
                 "lecture.pdf", "application/pdf", SourceUnitType.PAGE, sourceUnits
         );
         return new DocumentProcessingResult(
-                "lecture.pdf", "application/pdf", ChunkStrategy.PAGE,
+                "lecture.pdf", "application/pdf", "lecture",
                 sourceUnits.size(), sections.size(), chunks.size(),
                 100, "전체 텍스트",
                 extractedDocument, sections, chunks

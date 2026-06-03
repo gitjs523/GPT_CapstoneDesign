@@ -1,7 +1,6 @@
 package org.example.snow.document.application;
 
 import org.example.snow.document.domain.AnalysisStatus;
-import org.example.snow.document.domain.ChunkStrategy;
 import org.example.snow.document.domain.Document;
 import org.example.snow.document.domain.ExtractedSection;
 import org.example.snow.document.domain.Section;
@@ -125,8 +124,7 @@ class DocumentServiceTest {
         });
 
         DocumentUploadCommand command = new DocumentUploadCommand(
-                new UploadedDocument("lecture.pdf", "application/pdf", "content".getBytes()),
-                ChunkStrategy.AUTO
+                new UploadedDocument("lecture.pdf", "application/pdf", "content".getBytes())
         );
         Document result = documentService.createDocument(1L, 10L, command);
 
@@ -146,8 +144,7 @@ class DocumentServiceTest {
         when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
 
         DocumentUploadCommand command = new DocumentUploadCommand(
-                new UploadedDocument("report.hwp", "application/x-hwp", "content".getBytes()),
-                ChunkStrategy.AUTO
+                new UploadedDocument("report.hwp", "application/x-hwp", "content".getBytes())
         );
 
         assertThatThrownBy(() -> documentService.createDocument(1L, 10L, command))
@@ -164,8 +161,7 @@ class DocumentServiceTest {
         when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
 
         DocumentUploadCommand command = new DocumentUploadCommand(
-                new UploadedDocument("lecture.pdf", "application/pdf", "content".getBytes()),
-                ChunkStrategy.AUTO
+                new UploadedDocument("lecture.pdf", "application/pdf", "content".getBytes())
         );
 
         assertThatThrownBy(() -> documentService.createDocument(1L, 10L, command))

@@ -1,9 +1,7 @@
 package org.example.snow.document.application;
 
 import org.example.snow.document.application.chunking.ChunkComposer;
-import org.example.snow.document.application.chunking.ChunkStrategyResolver;
 import org.example.snow.document.application.chunking.SectionBuilder;
-import org.example.snow.document.domain.ChunkStrategy;
 import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.ExtractedDocument;
 import org.example.snow.document.domain.ExtractedSection;
@@ -18,7 +16,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ChunkingServiceTest {
 
     private final ChunkingService chunkingService = new ChunkingService(
-            new ChunkStrategyResolver(),
             new SectionBuilder(),
             new ChunkComposer()
     );
@@ -33,17 +30,17 @@ class ChunkingServiceTest {
                         new ExtractedSourceUnit(
                                 1,
                                 "Page 1",
-                                "1. RAG Overview\nRAG는 검색 증강 생성이다.\n\n검색 단계가 필요하다."
+                                "1. RAG Overview\nRAG는 검색 증강 생성이며 외부 문서를 근거로 답을 만든다.\n\n검색 단계가 반드시 필요하다."
                         ),
                         new ExtractedSourceUnit(
                                 2,
                                 "Page 2",
-                                "임베딩은 문서를 벡터로 변환한다.\n\n유사도 검색에 사용된다."
+                                "임베딩은 문서를 벡터로 변환하여 유사도 검색을 가능하게 하는 핵심 단계이다."
                         ),
                         new ExtractedSourceUnit(
                                 3,
                                 "Page 3",
-                                "2. Embedding Pipeline\n청킹 후 임베딩을 생성한다."
+                                "2. Embedding Pipeline\n청킹 후 각 조각에 대해 임베딩 벡터를 생성하고 저장한다."
                         )
                 )
         );
@@ -60,38 +57,27 @@ class ChunkingServiceTest {
     }
 
     @Test
-    void splitsLongSectionsAndKeepsPhysicalMetadata() {
-        String paragraphOne = "RAG 개요를 설명한다. ".repeat(120);
-        String paragraphTwo = "임베딩 생성 과정을 설명한다. ".repeat(120);
-        String paragraphThree = "검색 단계의 상세 동작을 설명한다. ".repeat(120);
+    void splitsLongSectionIntoMultipleChunksKeepingMetadata() {
+        // 한 페이지에 긴 본문 → Section 1개가 여러 Chunk(~400자)로 분리된다
+        String body = "RAG 개요와 동작 원리를 자세히 설명한다. ".repeat(80);
 
         ExtractedDocument document = new ExtractedDocument(
                 "guide.pdf",
                 "application/pdf",
                 SourceUnitType.PAGE,
-                List.of(
-                        new ExtractedSourceUnit(
-                                1,
-                                "Page 1",
-                                "1. RAG Overview\n" + paragraphOne + "\n\n" + paragraphTwo
-                        ),
-                        new ExtractedSourceUnit(
-                                2,
-                                "Page 2",
-                                paragraphThree
-                        )
-                )
+                List.of(new ExtractedSourceUnit(1, "Page 1", "1. RAG Overview\n" + body))
         );
 
         List<ExtractedSection> sections = chunkingService.buildSections(document);
-        List<ExtractedChunk> chunks = chunkingService.chunk(document, sections, ChunkStrategy.SECTION);
+        List<ExtractedChunk> chunks = chunkingService.chunk(sections);
 
+        assertThat(sections).hasSize(1);
         assertThat(chunks.size()).isGreaterThan(1);
         assertThat(chunks).allSatisfy(chunk -> {
             assertThat(chunk.sourceType()).isEqualTo(SourceUnitType.PAGE);
             assertThat(chunk.sourceStartIndex()).isEqualTo(1);
-            assertThat(chunk.sourceEndIndex()).isEqualTo(2);
-            assertThat(chunk.sourceIndices()).containsExactly(1, 2);
+            assertThat(chunk.sourceEndIndex()).isEqualTo(1);
+            assertThat(chunk.sourceIndices()).containsExactly(1);
         });
         assertThat(chunks.get(0).heading()).contains("RAG Overview");
     }

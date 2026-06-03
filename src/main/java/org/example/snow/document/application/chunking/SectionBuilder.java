@@ -9,17 +9,19 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.regex.Pattern;
 
+/**
+ * SourceUnit을 의미 단위 Section으로 묶는다.
+ *
+ * 경계 신호는 헤딩(OutlineMarkers로 번호/불릿/짧은 제목 인식)이며, 번호 접두사를 정규화해
+ * 비교하므로 구분 슬라이드("1. 개요")와 본문("개요")이 한 Section으로 합쳐진다.
+ * 한 Section이 너무 커지면(MAX_SECTION_CHARS) 페이지 경계에서 분할한다.
+ */
 @Component
 public class SectionBuilder {
 
-    private static final Pattern NUMBERED_HEADING_PATTERN = Pattern.compile(
-            "^(?:\\d+(?:[.-]\\d+)*[.)]?|[A-Z][.)]|[IVXLCM]+[.)]|\\([^)]+\\)|제\\s*\\d+\\s*[장절조])\\s+.+$"
-    );
-    private static final Pattern GENERIC_PAGE_HEADING_PATTERN = Pattern.compile("^Page\\s+\\d+$", Pattern.CASE_INSENSITIVE);
-    private static final Pattern GENERIC_SLIDE_HEADING_PATTERN = Pattern.compile("^Slide\\s+\\d+$", Pattern.CASE_INSENSITIVE);
+    private static final int MAX_SECTION_CHARS = 1_200;
+    private static final int MIN_SECTION_CHARS = 30;
 
     public List<ExtractedSection> build(ExtractedDocument document) {
         List<ExtractedSection> sections = new ArrayList<>();
@@ -37,7 +39,8 @@ public class SectionBuilder {
                 continue;
             }
 
-            if (shouldStartNewSection(current, candidate)) {
+            boolean wouldExceed = current.length() + candidate.text().length() > MAX_SECTION_CHARS;
+            if (shouldStartNewSection(current, candidate) || wouldExceed) {
                 sections.add(current.toSection(order++));
                 current = SectionAccumulator.start(candidate, document.sourceType());
                 continue;
@@ -50,14 +53,66 @@ public class SectionBuilder {
             sections.add(current.toSection(order));
         }
 
-        return sections;
+        return mergeTinySections(sections);
+    }
+
+    /**
+     * 본문이 너무 짧은 Section(표지/구분 슬라이드 등)을 인접 Section으로 흡수한다.
+     * 다음 Section으로 흡수하되, 마지막이면 이전 Section으로, 단독이면 그대로 둔다.
+     */
+    private List<ExtractedSection> mergeTinySections(List<ExtractedSection> sections) {
+        List<ExtractedSection> work = new ArrayList<>(sections);
+        List<ExtractedSection> out = new ArrayList<>();
+
+        for (int i = 0; i < work.size(); i++) {
+            ExtractedSection section = work.get(i);
+            if (section.text().length() >= MIN_SECTION_CHARS) {
+                out.add(section);
+                continue;
+            }
+            if (i + 1 < work.size()) {
+                work.set(i + 1, merge(section, work.get(i + 1), work.get(i + 1).heading()));
+            } else if (!out.isEmpty()) {
+                int last = out.size() - 1;
+                out.set(last, merge(out.get(last), section, out.get(last).heading()));
+            } else {
+                out.add(section); // 단독 Section은 보존
+            }
+        }
+
+        List<ExtractedSection> renumbered = new ArrayList<>(out.size());
+        int order = 1;
+        for (ExtractedSection section : out) {
+            renumbered.add(new ExtractedSection(
+                    order++, section.heading(), section.text(), section.sourceType(),
+                    section.sourceStartIndex(), section.sourceEndIndex(), section.sourceIndices()));
+        }
+        return renumbered;
+    }
+
+    private ExtractedSection merge(ExtractedSection first, ExtractedSection second, String heading) {
+        List<Integer> indices = new ArrayList<>(first.sourceIndices());
+        for (Integer idx : second.sourceIndices()) {
+            if (!indices.contains(idx)) {
+                indices.add(idx);
+            }
+        }
+        String text = (first.text() + "\n\n" + second.text()).trim();
+        return new ExtractedSection(
+                first.order(),
+                heading,
+                text,
+                first.sourceType(),
+                Math.min(first.sourceStartIndex(), second.sourceStartIndex()),
+                Math.max(first.sourceEndIndex(), second.sourceEndIndex()),
+                indices
+        );
     }
 
     private boolean shouldStartNewSection(SectionAccumulator current, SectionCandidate candidate) {
         if (!candidate.explicitHeading()) {
             return false;
         }
-
         return !current.matchesHeading(candidate.heading());
     }
 
@@ -93,14 +148,14 @@ public class SectionBuilder {
             List<String> lines,
             int fallbackIndex
     ) {
-        String normalizedSourceHeading = normalizeHeading(sourceHeading);
+        String normalizedSourceHeading = OutlineMarkers.normalizeHeading(sourceHeading);
         if (isMeaningfulSourceHeading(sourceType, normalizedSourceHeading)) {
             return new HeadingResolution(normalizedSourceHeading, false, true);
         }
 
         for (String line : lines) {
-            if (isStructuralHeading(line)) {
-                return new HeadingResolution(normalizeHeading(line), true, true);
+            if (isHeadingCandidate(line)) {
+                return new HeadingResolution(OutlineMarkers.normalizeHeading(line), true, true);
             }
         }
 
@@ -113,13 +168,14 @@ public class SectionBuilder {
         }
 
         List<String> lines = text.lines().toList();
-        String normalizedHeading = normalizeHeading(headingResolution.heading());
+        String normalizedHeading = OutlineMarkers.normalizeHeading(headingResolution.heading());
         boolean removed = false;
         StringBuilder builder = new StringBuilder();
 
         for (String line : lines) {
             String trimmedLine = line.trim();
-            if (!removed && StringUtils.hasText(trimmedLine) && normalizeHeading(trimmedLine).equals(normalizedHeading)) {
+            if (!removed && StringUtils.hasText(trimmedLine)
+                    && OutlineMarkers.normalizeHeading(trimmedLine).equals(normalizedHeading)) {
                 removed = true;
                 continue;
             }
@@ -138,52 +194,26 @@ public class SectionBuilder {
             return false;
         }
         if (sourceType == SourceUnitType.PAGE) {
-            return !GENERIC_PAGE_HEADING_PATTERN.matcher(heading).matches();
+            return !OutlineMarkers.isGenericPageHeading(heading);
         }
         if (sourceType == SourceUnitType.SLIDE) {
-            return !GENERIC_SLIDE_HEADING_PATTERN.matcher(heading).matches();
+            return !OutlineMarkers.isGenericSlideHeading(heading);
         }
         return true;
     }
 
-    private boolean isStructuralHeading(String line) {
-        String normalizedLine = normalizeHeading(line);
-        if (!StringUtils.hasText(normalizedLine)) {
-            return false;
-        }
-        if (normalizedLine.startsWith("-") || normalizedLine.startsWith("*") || normalizedLine.startsWith("•")) {
-            return false;
-        }
-        if (normalizedLine.length() > 80) {
-            return false;
-        }
-        if (NUMBERED_HEADING_PATTERN.matcher(normalizedLine).matches()) {
-            return true;
-        }
-        if (endsWithSentencePunctuation(normalizedLine)) {
-            return false;
-        }
-
-        int wordCount = normalizedLine.split("\\s+").length;
-        return normalizedLine.length() <= 40 && wordCount <= 10;
-    }
-
-    private boolean endsWithSentencePunctuation(String line) {
-        String lowerCaseLine = line.toLowerCase(Locale.ROOT);
-        return lowerCaseLine.endsWith(".")
-                || lowerCaseLine.endsWith("?")
-                || lowerCaseLine.endsWith("!")
-                || lowerCaseLine.endsWith("다.")
-                || lowerCaseLine.endsWith("니다.")
-                || lowerCaseLine.endsWith(";");
+    /**
+     * 줄이 Section 헤딩 후보인가.
+     * 번호 헤딩이거나 짧은 제목줄만 인정한다. 마커로 시작해도 길면(이전 페이지에서 넘어온
+     * 긴 불릿 문장 등) 헤딩으로 보지 않는다 — isShortTitleLine이 길이/문장 여부를 판정한다.
+     */
+    private boolean isHeadingCandidate(String line) {
+        return OutlineMarkers.isNumberedHeading(line)
+                || OutlineMarkers.isShortTitleLine(line);
     }
 
     private String defaultSectionHeading(int index) {
         return "Section " + index;
-    }
-
-    private String normalizeHeading(String heading) {
-        return heading == null ? "" : heading.trim().replaceAll("\\s+", " ");
     }
 
     private record SectionCandidate(
@@ -229,8 +259,14 @@ public class SectionBuilder {
             textBuilder.append(candidate.text().trim());
         }
 
+        int length() {
+            return textBuilder.length();
+        }
+
+        /** 번호 접두사를 무시하고 헤딩을 비교한다("1. 개요" ≡ "개요"). */
         boolean matchesHeading(String candidateHeading) {
-            return heading.equalsIgnoreCase(candidateHeading);
+            return OutlineMarkers.stripLeadingMarker(heading)
+                    .equalsIgnoreCase(OutlineMarkers.stripLeadingMarker(candidateHeading));
         }
 
         ExtractedSection toSection(int order) {

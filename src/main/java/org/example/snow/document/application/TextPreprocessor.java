@@ -1,10 +1,12 @@
 package org.example.snow.document.application;
 
+import org.example.snow.document.application.chunking.OutlineMarkers;
 import org.example.snow.global.text.ControlCharSanitizer;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.stream.Collectors;
+import java.util.List;
 
 @Service
 public class TextPreprocessor {
@@ -25,11 +27,14 @@ public class TextPreprocessor {
 
         normalized = normalized
                 .replace('\u00A0', ' ')
-                .replaceAll("[\\t\\x0B\\f]+", " ");
+                .replaceAll("[\\t\\x0B\\f]+", " ")
+                // \uBE48 \uAD04\uD638 \uC544\uD2F0\uD329\uD2B8 \uC81C\uAC70 (PDF \uCD94\uCD9C \uC2DC placeholder \uBC15\uC2A4\uAC00 "[ ]"\uB85C \uB0A8\uB294 \uACBD\uC6B0)
+                .replaceAll("[\\[\\uFF3B]\\s*[\\]\\uFF3D]", " ");
 
-        normalized = Arrays.stream(normalized.split("\\n", -1))
+        List<String> lines = Arrays.stream(normalized.split("\\n", -1))
                 .map(String::strip)
-                .collect(Collectors.joining("\n"));
+                .toList();
+        normalized = joinWrappedLines(lines);
 
         normalized = normalized
                 .replaceAll("[ ]{2,}", " ")
@@ -37,5 +42,51 @@ public class TextPreprocessor {
                 .trim();
 
         return normalized;
+    }
+
+    /**
+     * 화면 폭 때문에 끊긴 줄(wrapping)을 한 줄로 병합한다.
+     *
+     * 직전 줄이 문장 종결 부호로 끝나지 않고, 다음 줄이 새 마커로 시작하지 않으면 이어붙인다.
+     * 단, 마커 없는 짧은 제목줄은 뒤 본문을 흡수하지 않도록 보존한다(헤딩 탐지 보호).
+     * 빈 줄(문단 경계)은 병합 경계로 유지한다.
+     */
+    private String joinWrappedLines(List<String> lines) {
+        List<String> result = new ArrayList<>();
+        String current = null;
+        for (String line : lines) {
+            if (line.isBlank()) {
+                if (current != null) {
+                    result.add(current);
+                    current = null;
+                }
+                result.add("");
+            } else if (current == null) {
+                current = line;
+            } else if (shouldJoin(current, line)) {
+                current = current + " " + line;
+            } else {
+                result.add(current);
+                current = line;
+            }
+        }
+        if (current != null) {
+            result.add(current);
+        }
+        return String.join("\n", result);
+    }
+
+    private boolean shouldJoin(String previous, String next) {
+        if (OutlineMarkers.endsWithSentencePunctuation(previous)) {
+            return false;
+        }
+        if (OutlineMarkers.startsWithMarker(next)) {
+            return false;
+        }
+        // 마커 없는 짧은 제목줄은 뒤 본문을 흡수하지 않는다.
+        if (OutlineMarkers.isShortTitleLine(previous) && !OutlineMarkers.startsWithMarker(previous)) {
+            return false;
+        }
+        return true;
     }
 }

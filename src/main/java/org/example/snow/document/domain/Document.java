@@ -40,6 +40,10 @@ public class Document {
     @Column(name = "original_file_name", length = 255)
     private String originalFileName;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
+    @Column(name = "title", length = 255)
+    private String title;
+
     @Column(name = "stored_file_name", length = 255)
     private String storedFileName;
 
@@ -114,6 +118,10 @@ public class Document {
 
     public void saveSummary(String summaryText) {
         this.summaryText = summaryText;
+    }
+
+    public void assignTitle(String title) {
+        this.title = title;
     }
 
     public void softDelete() {

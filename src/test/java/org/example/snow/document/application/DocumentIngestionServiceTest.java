@@ -1,7 +1,6 @@
 package org.example.snow.document.application;
 
 import org.example.snow.document.application.port.TextExtractor;
-import org.example.snow.document.domain.ChunkStrategy;
 import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.ExtractedDocument;
 import org.example.snow.document.domain.ExtractedSection;
@@ -30,7 +29,9 @@ class DocumentIngestionServiceTest {
     private final DocumentIngestionService service = new DocumentIngestionService(
             List.of(extractor),
             textPreprocessor,
-            chunkingService
+            chunkingService,
+            new org.example.snow.document.application.chunking.BoilerplateFilter(),
+            new org.example.snow.document.application.chunking.DocumentTitleResolver()
     );
 
     // ─────────────────────── 파일 유효성 검사 ───────────────────────
@@ -44,7 +45,7 @@ class DocumentIngestionServiceTest {
 
     @Test
     void ingest_file_null이면_FILE_REQUIRED_예외() {
-        assertThatThrownBy(() -> service.ingest(new DocumentUploadCommand(null, null)))
+        assertThatThrownBy(() -> service.ingest(new DocumentUploadCommand(null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ErrorCode.FILE_REQUIRED.getMessage());
     }
@@ -52,8 +53,7 @@ class DocumentIngestionServiceTest {
     @Test
     void ingest_file_content_비어있으면_FILE_REQUIRED_예외() {
         DocumentUploadCommand command = new DocumentUploadCommand(
-                new UploadedDocument("lecture.pdf", "application/pdf", new byte[0]),
-                null
+                new UploadedDocument("lecture.pdf", "application/pdf", new byte[0])
         );
         assertThatThrownBy(() -> service.ingest(command))
                 .isInstanceOf(BusinessException.class)
@@ -66,8 +66,7 @@ class DocumentIngestionServiceTest {
     void ingest_지원하는_extractor_없으면_UNSUPPORTED_DOCUMENT_TYPE_예외() {
         when(extractor.supports(any())).thenReturn(false);
         DocumentUploadCommand command = new DocumentUploadCommand(
-                new UploadedDocument("report.hwp", "application/x-hwp", "content".getBytes()),
-                null
+                new UploadedDocument("report.hwp", "application/x-hwp", "content".getBytes())
         );
 
         assertThatThrownBy(() -> service.ingest(command))
@@ -82,7 +81,9 @@ class DocumentIngestionServiceTest {
         DocumentIngestionService serviceWithMultiple = new DocumentIngestionService(
                 List.of(unsupported, supported),
                 textPreprocessor,
-                chunkingService
+                chunkingService,
+                new org.example.snow.document.application.chunking.BoilerplateFilter(),
+                new org.example.snow.document.application.chunking.DocumentTitleResolver()
         );
         ExtractedDocument extracted = createExtractedDocument(List.of(
                 new ExtractedSourceUnit(1, "Page 1", "내용")
@@ -91,9 +92,8 @@ class DocumentIngestionServiceTest {
         when(supported.supports(any())).thenReturn(true);
         when(supported.extract(any())).thenReturn(extracted);
         when(textPreprocessor.normalize(any())).thenReturn("내용");
-        when(chunkingService.resolveStrategy(any(), any())).thenReturn(ChunkStrategy.SECTION);
         when(chunkingService.buildSections(any())).thenReturn(List.of());
-        when(chunkingService.chunk(any(), any(), any())).thenReturn(List.of());
+        when(chunkingService.chunk(any())).thenReturn(List.of());
 
         serviceWithMultiple.ingest(createPdfCommand());
 
@@ -125,9 +125,8 @@ class DocumentIngestionServiceTest {
         when(extractor.supports(any())).thenReturn(true);
         when(extractor.extract(any())).thenReturn(extracted);
         when(textPreprocessor.normalize("원본  텍스트\r\n")).thenReturn("원본 텍스트");
-        when(chunkingService.resolveStrategy(any(), any())).thenReturn(ChunkStrategy.SECTION);
         when(chunkingService.buildSections(any())).thenReturn(List.of());
-        when(chunkingService.chunk(any(), any(), any())).thenReturn(List.of());
+        when(chunkingService.chunk(any())).thenReturn(List.of());
 
         DocumentProcessingResult result = service.ingest(createPdfCommand());
 
@@ -154,14 +153,12 @@ class DocumentIngestionServiceTest {
         when(extractor.extract(any())).thenReturn(extracted);
         when(textPreprocessor.normalize("텍스트1")).thenReturn("텍스트1");
         when(textPreprocessor.normalize("텍스트2")).thenReturn("텍스트2");
-        when(chunkingService.resolveStrategy(any(), any())).thenReturn(ChunkStrategy.SECTION);
         when(chunkingService.buildSections(any())).thenReturn(sections);
-        when(chunkingService.chunk(any(), any(), any())).thenReturn(chunks);
+        when(chunkingService.chunk(any())).thenReturn(chunks);
 
         DocumentProcessingResult result = service.ingest(createPdfCommand());
 
         assertThat(result.originalFilename()).isEqualTo("lecture.pdf");
-        assertThat(result.appliedChunkStrategy()).isEqualTo(ChunkStrategy.SECTION);
         assertThat(result.sourceUnitCount()).isEqualTo(2);
         assertThat(result.sectionCount()).isEqualTo(1);
         assertThat(result.chunkCount()).isEqualTo(2);
@@ -181,9 +178,8 @@ class DocumentIngestionServiceTest {
         when(extractor.extract(any())).thenReturn(extracted);
         when(textPreprocessor.normalize("첫 번째")).thenReturn("첫 번째");
         when(textPreprocessor.normalize("두 번째")).thenReturn("두 번째");
-        when(chunkingService.resolveStrategy(any(), any())).thenReturn(ChunkStrategy.SECTION);
         when(chunkingService.buildSections(any())).thenReturn(List.of());
-        when(chunkingService.chunk(any(), any(), any())).thenReturn(List.of());
+        when(chunkingService.chunk(any())).thenReturn(List.of());
 
         DocumentProcessingResult result = service.ingest(createPdfCommand());
 
@@ -202,9 +198,8 @@ class DocumentIngestionServiceTest {
         when(textPreprocessor.normalize("내용 있는 페이지")).thenReturn("내용 있는 페이지");
         when(textPreprocessor.normalize("")).thenReturn("");
         when(textPreprocessor.normalize("마지막 페이지")).thenReturn("마지막 페이지");
-        when(chunkingService.resolveStrategy(any(), any())).thenReturn(ChunkStrategy.SECTION);
         when(chunkingService.buildSections(any())).thenReturn(List.of());
-        when(chunkingService.chunk(any(), any(), any())).thenReturn(List.of());
+        when(chunkingService.chunk(any())).thenReturn(List.of());
 
         DocumentProcessingResult result = service.ingest(createPdfCommand());
 
@@ -215,8 +210,7 @@ class DocumentIngestionServiceTest {
 
     private DocumentUploadCommand createPdfCommand() {
         return new DocumentUploadCommand(
-                new UploadedDocument("lecture.pdf", "application/pdf", "content".getBytes()),
-                null
+                new UploadedDocument("lecture.pdf", "application/pdf", "content".getBytes())
         );
     }
 

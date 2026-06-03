@@ -58,7 +58,7 @@ public class NotebookDocumentController {
                 file.getBytes()
         );
         DocumentResponse response = DocumentResponse.from(
-                documentService.createDocument(principal.userId(), notebookId, new DocumentUploadCommand(uploaded, null))
+                documentService.createDocument(principal.userId(), notebookId, new DocumentUploadCommand(uploaded))
         );
         return ResponseEntity.created(
                 URI.create("/api/notebooks/" + notebookId + "/documents/" + response.documentId())

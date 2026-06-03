@@ -32,7 +32,7 @@ public class EmbeddingService {
             List<Chunk> batch = chunks.subList(i, Math.min(i + batchSize, chunks.size()));
 
             List<String> texts = batch.stream()
-                    .map(Chunk::getContent)
+                    .map(this::buildEmbeddingInput)
                     .toList();
 
             List<float[]> vectors = embeddingClient.embedAll(texts);
@@ -47,6 +47,25 @@ public class EmbeddingService {
         }
 
         log.info("===== saveEmbeddings END =====");
+    }
+
+    /**
+     * Contextual Retrieval: 청크 임베딩 입력 앞에 [문서]/[섹션] breadcrumb 헤더를 붙인다.
+     * 짧은 청크가 문맥을 잃지 않도록 소속 문서 제목과 섹션 헤딩을 함께 임베딩한다.
+     * 헤더는 임베딩 입력에만 쓰며 chunk.content(원문)는 그대로 둔다.
+     */
+    private String buildEmbeddingInput(Chunk chunk) {
+        String docTitle = chunk.getDocument() == null ? null : chunk.getDocument().getTitle();
+        String heading = chunk.getSection() == null ? null : chunk.getSection().getHeading();
+
+        StringBuilder header = new StringBuilder();
+        if (docTitle != null && !docTitle.isBlank()) {
+            header.append("[문서: ").append(docTitle.trim()).append("]\n");
+        }
+        if (heading != null && !heading.isBlank()) {
+            header.append("[섹션: ").append(heading.trim()).append("]\n");
+        }
+        return header + chunk.getContent();
     }
 
     public float[] createEmbedding(String text) {

@@ -58,8 +58,10 @@ public class DocumentAnalysisService {
         List<Section> savedSections = saveSections(document, result.sections());
         List<Chunk> savedChunks = saveChunks(document, savedSections, result.sections(), result.chunks());
 
+        // 임베딩 contextual header에 쓰이도록 in-memory document에 제목을 먼저 세팅한다.
+        document.assignTitle(result.docTitle());
         embeddingService.saveEmbeddings(savedChunks);
-        statusManager.markSummarizing(document.getDocumentId());
+        statusManager.markSummarizing(document.getDocumentId(), result.docTitle());
 
         String summaryText = null;
         try {
