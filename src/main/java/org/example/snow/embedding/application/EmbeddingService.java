@@ -3,7 +3,6 @@ package org.example.snow.embedding.application;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.snow.embedding.infra.EmbeddingClient;
-import org.example.snow.document.domain.Chunk;
 import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
@@ -25,47 +24,24 @@ public class EmbeddingService {
     @Value("${ollama.embedding.batch-size}")
     private int batchSize;
 
-    public void saveEmbeddings(List<Chunk> chunks) {
-        log.info("===== saveEmbeddings START | total={} batchSize={} =====", chunks.size(), batchSize);
-
-        for (int i = 0; i < chunks.size(); i += batchSize) {
-            List<Chunk> batch = chunks.subList(i, Math.min(i + batchSize, chunks.size()));
-
-            List<String> texts = batch.stream()
-                    .map(this::buildEmbeddingInput)
-                    .toList();
-
-            List<float[]> vectors = embeddingClient.embedAll(texts);
-
-            for (int j = 0; j < batch.size(); j++) {
-                batch.get(j).updateEmbedding(vectors.get(j));
-            }
-
-            chunkRepository.saveAll(batch);
-
-            log.info("batch {}/{} saved", Math.min(i + batchSize, chunks.size()), chunks.size());
-        }
-
-        log.info("===== saveEmbeddings END =====");
-    }
-
     /**
-     * Contextual Retrieval: 청크 임베딩 입력 앞에 [문서]/[섹션] breadcrumb 헤더를 붙인다.
-     * 짧은 청크가 문맥을 잃지 않도록 소속 문서 제목과 섹션 헤딩을 함께 임베딩한다.
-     * 헤더는 임베딩 입력에만 쓰며 chunk.content(원문)는 그대로 둔다.
+     * 블록/텍스트 목록을 임베딩한다 (배치 호출). semantic 분할과 chunk 저장에 공통으로 쓰는 단일 패스.
+     * breadcrumb 없이 원문을 그대로 임베딩한다 — semantic 분할이 개념 단위를 보장하므로 blocks의
+     * raw 임베딩을 chunk 임베딩으로 그대로 저장한다(분할용/저장용 임베딩 일원화, 비용 1패스).
      */
-    private String buildEmbeddingInput(Chunk chunk) {
-        String docTitle = chunk.getDocument() == null ? null : chunk.getDocument().getTitle();
-        String heading = chunk.getSection() == null ? null : chunk.getSection().getHeading();
-
-        StringBuilder header = new StringBuilder();
-        if (docTitle != null && !docTitle.isBlank()) {
-            header.append("[문서: ").append(docTitle.trim()).append("]\n");
+    public List<float[]> embedAll(List<String> texts) {
+        if (texts == null || texts.isEmpty()) {
+            return List.of();
         }
-        if (heading != null && !heading.isBlank()) {
-            header.append("[섹션: ").append(heading.trim()).append("]\n");
+        log.info("===== embedAll START | total={} batchSize={} =====", texts.size(), batchSize);
+        List<float[]> vectors = new java.util.ArrayList<>(texts.size());
+        for (int i = 0; i < texts.size(); i += batchSize) {
+            List<String> batch = texts.subList(i, Math.min(i + batchSize, texts.size()));
+            vectors.addAll(embeddingClient.embedAll(batch));
+            log.info("batch {}/{} embedded", Math.min(i + batchSize, texts.size()), texts.size());
         }
-        return header + chunk.getContent();
+        log.info("===== embedAll END =====");
+        return vectors;
     }
 
     public float[] createEmbedding(String text) {

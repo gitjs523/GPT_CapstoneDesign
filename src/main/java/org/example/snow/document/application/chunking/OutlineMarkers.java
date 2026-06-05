@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
  *
  * 강의 슬라이드(불릿 ➢○■·•)와 텍스트 핸드아웃(번호 N. N) N주차 ①, 영문 A.)처럼
  * 작성자마다 다른 마커 체계를 한곳에서 인식한다. wrapping 줄바꿈 병합(TextPreprocessor)과
- * Section 경계 판정(SectionBuilder)이 공통으로 사용한다.
+ * Section label 추출(SemanticSectionizer)이 공통으로 사용한다.
  *
  * 순수 유틸 — Spring 의존 없음.
  */
