@@ -1,6 +1,7 @@
 package org.example.snow.notebook.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
@@ -15,6 +16,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.snow.global.text.ControlCharSanitizingConverter;
 import org.example.snow.user.domain.UserAccount;
 
 import java.time.LocalDateTime;
@@ -36,6 +38,7 @@ public class Notebook {
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_notebook_user"))
     private UserAccount user;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(nullable = false, length = 255)
     private String title;
 

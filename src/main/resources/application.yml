@@ -70,6 +70,13 @@ cloud:
     s3:
       bucket: ${S3_BUCKET_NAME}
 
+chunking:
+  semantic:
+    # 인접 블록 cosine 상대 깊이(mean - k*std) 경계 민감도. 클수록 덜 분할.
+    k: ${CHUNKING_SEMANTIC_K:1.0}
+    # Section 크기 상한(자). 초과 시 내부 최저 유사도 seam에서 분할(LLM context 토큰 예산 보호).
+    max-section-chars: ${CHUNKING_SEMANTIC_MAX_SECTION_CHARS:4000}
+
 model-queue:
   embedding-capacity: ${MODEL_QUEUE_EMBEDDING_CAPACITY:5}
   generation-capacity: ${MODEL_QUEUE_GENERATION_CAPACITY:10}

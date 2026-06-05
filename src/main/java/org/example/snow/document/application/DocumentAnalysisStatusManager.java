@@ -24,8 +24,9 @@ public class DocumentAnalysisStatusManager {
     private final SectionRepository sectionRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markSummarizing(Long documentId) {
+    public void markSummarizing(Long documentId, String title) {
         documentRepository.findById(documentId).ifPresent(doc -> {
+            doc.assignTitle(title);
             doc.startSummarizing();
             documentRepository.save(doc);
         });

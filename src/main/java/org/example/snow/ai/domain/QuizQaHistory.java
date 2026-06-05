@@ -1,6 +1,7 @@
 package org.example.snow.ai.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
@@ -14,6 +15,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.snow.global.text.ControlCharSanitizingConverter;
 import org.example.snow.user.domain.UserAccount;
 
 import java.time.LocalDateTime;
@@ -37,9 +39,11 @@ public class QuizQaHistory {
     @JoinColumn(name = "quiz_id", nullable = false, foreignKey = @ForeignKey(name = "fk_quiz_qa_history_quiz"))
     private GeneratedQuiz quiz;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(name = "user_question", nullable = false, columnDefinition = "text")
     private String userQuestion;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(name = "ai_answer", nullable = false, columnDefinition = "text")
     private String aiAnswer;
 

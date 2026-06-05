@@ -1,11 +1,11 @@
 package org.example.snow.document.application;
 
 import lombok.RequiredArgsConstructor;
+import org.example.snow.document.application.chunking.BlockSplitter;
+import org.example.snow.document.application.chunking.BoilerplateFilter;
+import org.example.snow.document.application.chunking.TextBlock;
 import org.example.snow.document.application.port.TextExtractor;
-import org.example.snow.document.domain.ChunkStrategy;
-import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.ExtractedDocument;
-import org.example.snow.document.domain.ExtractedSection;
 import org.example.snow.document.domain.ExtractedSourceUnit;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
@@ -13,40 +13,34 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * 문서 ingest Phase A — 임베딩에 무관한 순수 텍스트 처리.
+ *
+ * 추출 → 전처리(NUL/wrapping 등) → 반복 머리말/꼬리말 제거 → 문단 블록 분리까지 수행한다.
+ * Section 구성은 임베딩 유사도가 필요하므로 여기서 하지 않고 DocumentAnalysisService가 이어받는다.
+ */
 @Service
 @RequiredArgsConstructor
 public class DocumentIngestionService {
 
     private final List<TextExtractor> textExtractors;
     private final TextPreprocessor textPreprocessor;
-    private final ChunkingService chunkingService;
+    private final BoilerplateFilter boilerplateFilter;
+    private final BlockSplitter blockSplitter;
 
-    public DocumentProcessingResult ingest(DocumentUploadCommand command) {
+    public IngestedDocument ingest(DocumentUploadCommand command) {
         UploadedDocument file = validateFile(command);
         TextExtractor extractor = resolveExtractor(file);
         ExtractedDocument extractedDocument = extractor.extract(file);
         ExtractedDocument preprocessedDocument = preprocess(extractedDocument);
-        ChunkStrategy appliedStrategy = chunkingService.resolveStrategy(
-                preprocessedDocument.sourceType(),
-                command.chunkStrategy()
-        );
-        List<ExtractedSection> sections = chunkingService.buildSections(preprocessedDocument);
-        List<ExtractedChunk> chunks = chunkingService.chunk(preprocessedDocument, sections, appliedStrategy);
-        String preprocessedText = joinSourceUnits(preprocessedDocument.sourceUnits());
 
-        return new DocumentProcessingResult(
-                preprocessedDocument.originalFilename(),
-                preprocessedDocument.contentType(),
-                appliedStrategy,
-                preprocessedDocument.sourceUnits().size(),
-                sections.size(),
-                chunks.size(),
-                preprocessedText.length(),
-                preprocessedText,
-                preprocessedDocument,
-                sections,
-                chunks
-        );
+        // 반복 머리말/꼬리말·페이지 번호 제거 (블록 경계 오염 방지)
+        BoilerplateFilter.Result filtered = boilerplateFilter.filter(preprocessedDocument.sourceUnits());
+        ExtractedDocument cleanedDocument = preprocessedDocument.withSourceUnits(filtered.units());
+
+        List<TextBlock> blocks = blockSplitter.split(cleanedDocument);
+
+        return new IngestedDocument(cleanedDocument, filtered.repeatedLines(), blocks);
     }
 
     private UploadedDocument validateFile(DocumentUploadCommand command) {
@@ -76,13 +70,5 @@ public class DocumentIngestionService {
         } catch (RuntimeException exception) {
             throw new BusinessException(ErrorCode.DOCUMENT_PREPROCESSING_FAILED, exception);
         }
-    }
-
-    private String joinSourceUnits(List<ExtractedSourceUnit> sourceUnits) {
-        return sourceUnits.stream()
-                .map(ExtractedSourceUnit::text)
-                .filter(text -> !text.isBlank())
-                .reduce((left, right) -> left + "\n\n" + right)
-                .orElse("");
     }
 }

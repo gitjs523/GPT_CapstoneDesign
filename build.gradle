@@ -62,6 +62,12 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    ['measure.pdf', 'retrieval.queries', 'retrieval.topk', 'inspect.maxSections', 'inspect.body',
+     'sem.k', 'sem.maxchars', 'embed.nocache'].each { p ->
+        if (System.getProperty(p) != null) {
+            systemProperty p, System.getProperty(p)
+        }
+    }
     def envFile = rootProject.file('.env')
     if (envFile.exists()) {
         envFile.readLines().each { line ->

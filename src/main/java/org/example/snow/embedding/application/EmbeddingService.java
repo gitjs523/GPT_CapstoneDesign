@@ -3,7 +3,6 @@ package org.example.snow.embedding.application;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.snow.embedding.infra.EmbeddingClient;
-import org.example.snow.document.domain.Chunk;
 import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
@@ -25,28 +24,24 @@ public class EmbeddingService {
     @Value("${ollama.embedding.batch-size}")
     private int batchSize;
 
-    public void saveEmbeddings(List<Chunk> chunks) {
-        log.info("===== saveEmbeddings START | total={} batchSize={} =====", chunks.size(), batchSize);
-
-        for (int i = 0; i < chunks.size(); i += batchSize) {
-            List<Chunk> batch = chunks.subList(i, Math.min(i + batchSize, chunks.size()));
-
-            List<String> texts = batch.stream()
-                    .map(Chunk::getContent)
-                    .toList();
-
-            List<float[]> vectors = embeddingClient.embedAll(texts);
-
-            for (int j = 0; j < batch.size(); j++) {
-                batch.get(j).updateEmbedding(vectors.get(j));
-            }
-
-            chunkRepository.saveAll(batch);
-
-            log.info("batch {}/{} saved", Math.min(i + batchSize, chunks.size()), chunks.size());
+    /**
+     * 블록/텍스트 목록을 임베딩한다 (배치 호출). semantic 분할과 chunk 저장에 공통으로 쓰는 단일 패스.
+     * breadcrumb 없이 원문을 그대로 임베딩한다 — semantic 분할이 개념 단위를 보장하므로 blocks의
+     * raw 임베딩을 chunk 임베딩으로 그대로 저장한다(분할용/저장용 임베딩 일원화, 비용 1패스).
+     */
+    public List<float[]> embedAll(List<String> texts) {
+        if (texts == null || texts.isEmpty()) {
+            return List.of();
         }
-
-        log.info("===== saveEmbeddings END =====");
+        log.info("===== embedAll START | total={} batchSize={} =====", texts.size(), batchSize);
+        List<float[]> vectors = new java.util.ArrayList<>(texts.size());
+        for (int i = 0; i < texts.size(); i += batchSize) {
+            List<String> batch = texts.subList(i, Math.min(i + batchSize, texts.size()));
+            vectors.addAll(embeddingClient.embedAll(batch));
+            log.info("batch {}/{} embedded", Math.min(i + batchSize, texts.size()), texts.size());
+        }
+        log.info("===== embedAll END =====");
+        return vectors;
     }
 
     public float[] createEmbedding(String text) {

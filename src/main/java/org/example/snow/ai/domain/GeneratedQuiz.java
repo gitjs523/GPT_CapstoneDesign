@@ -1,6 +1,7 @@
 package org.example.snow.ai.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
@@ -14,6 +15,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.snow.global.text.ControlCharSanitizingConverter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -41,15 +43,19 @@ public class GeneratedQuiz {
     @Column(name = "quiz_type", length = 20)
     private String quizType;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(name = "question_text", columnDefinition = "text")
     private String questionText;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(name = "choices", columnDefinition = "text")
     private String choices;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(name = "answer", columnDefinition = "text")
     private String answer;
 
+    @Convert(converter = ControlCharSanitizingConverter.class)
     @Column(name = "explanation", columnDefinition = "text")
     private String explanation;
 

@@ -3,10 +3,13 @@ package org.example.snow.document.application;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.snow.ai.application.OllamaService;
-import org.example.snow.embedding.application.EmbeddingService;
+import org.example.snow.document.application.chunking.DocumentTitleResolver;
+import org.example.snow.document.application.chunking.SemanticSectionizer;
+import org.example.snow.document.application.chunking.SemanticSectionizer.ChunkVector;
+import org.example.snow.document.application.chunking.SemanticSectionizer.SectionGroup;
+import org.example.snow.document.application.chunking.TextBlock;
 import org.example.snow.document.domain.Chunk;
 import org.example.snow.document.domain.Document;
-import org.example.snow.document.domain.ExtractedChunk;
 import org.example.snow.document.domain.ExtractedDocument;
 import org.example.snow.document.domain.ExtractedSection;
 import org.example.snow.document.domain.Section;
@@ -15,13 +18,23 @@ import org.example.snow.document.infra.ChunkRepository;
 import org.example.snow.document.infra.DocumentRepository;
 import org.example.snow.document.infra.SectionRepository;
 import org.example.snow.document.infra.SourceUnitRepository;
+import org.example.snow.embedding.application.EmbeddingService;
 import org.example.snow.global.exception.BusinessException;
 import org.example.snow.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 문서 분석 파이프라인 오케스트레이션.
+ *
+ * ingest(추출→전처리→boilerplate→블록) → 블록 임베딩 → semantic 분할(경계+cap+label)
+ * → Section/Chunk 영속(블록 임베딩을 chunk 임베딩으로 그대로 저장) → 요약 → 완료.
+ *
+ * 임베딩이 분할의 선행 조건이므로 임베딩 단계가 sectioning 앞에 온다(종전엔 sectioning 후 임베딩).
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,6 +48,8 @@ public class DocumentAnalysisService {
     private final OllamaService ollamaService;
     private final EmbeddingService embeddingService;
     private final DocumentAnalysisStatusManager statusManager;
+    private final SemanticSectionizer semanticSectionizer;
+    private final DocumentTitleResolver documentTitleResolver;
 
     public void analyze(Long documentId, DocumentUploadCommand command) {
         try {
@@ -48,27 +63,61 @@ public class DocumentAnalysisService {
     }
 
     private void analyzeInternal(Document document, DocumentUploadCommand command) {
-        DocumentProcessingResult result = documentIngestionService.ingest(command);
+        IngestedDocument ingested = documentIngestionService.ingest(command);
 
-        if (result.sections().isEmpty()) {
+        if (ingested.blocks().isEmpty()) {
             throw new BusinessException(ErrorCode.DOCUMENT_EMPTY_CONTENT);
         }
 
-        saveSourceUnits(document, result.extractedDocument());
-        List<Section> savedSections = saveSections(document, result.sections());
-        List<Chunk> savedChunks = saveChunks(document, savedSections, result.sections(), result.chunks());
+        saveSourceUnits(document, ingested.extractedDocument());
 
-        embeddingService.saveEmbeddings(savedChunks);
-        statusManager.markSummarizing(document.getDocumentId());
+        // 블록 임베딩 (단일 패스: 분할 + chunk 저장 공용)
+        List<TextBlock> blocks = ingested.blocks();
+        List<float[]> embeddings = embeddingService.embedAll(blocks.stream().map(TextBlock::text).toList());
+
+        // semantic 분할
+        String filename = ingested.extractedDocument().originalFilename();
+        String docTitleHint = documentTitleResolver.resolve(ingested.repeatedLines(), List.of(), filename);
+        List<SectionGroup> groups = semanticSectionizer.sectionize(blocks, embeddings, docTitleHint);
+
+        // 최종 docTitle은 실제 Section을 fallback으로 활용해 결정
+        List<ExtractedSection> extractedSections = groups.stream()
+                .map(SectionGroup::section)
+                .toList();
+        String docTitle = documentTitleResolver.resolve(ingested.repeatedLines(), extractedSections, filename);
+        document.assignTitle(docTitle);
+
+        persist(document, groups);
+
+        statusManager.markSummarizing(document.getDocumentId(), docTitle);
 
         String summaryText = null;
         try {
-            summaryText = ollamaService.generateSummary(buildSummaryInput(result.sections()));
+            summaryText = ollamaService.generateSummary(buildSummaryInput(extractedSections));
         } catch (Exception e) {
             log.warn("Summary generation failed for documentId={}, completing without summary",
                     document.getDocumentId(), e);
         }
-        statusManager.completeAnalysis(document.getDocumentId(), summaryText, result.extractedDocument().sourceUnits().size());
+        statusManager.completeAnalysis(
+                document.getDocumentId(), summaryText, ingested.extractedDocument().sourceUnits().size());
+    }
+
+    private void persist(Document document, List<SectionGroup> groups) {
+        List<Section> sectionsToSave = groups.stream()
+                .map(group -> Section.create(document, group.section()))
+                .toList();
+        List<Section> savedSections = sectionRepository.saveAll(sectionsToSave);
+
+        List<Chunk> chunksToSave = new ArrayList<>();
+        for (int i = 0; i < groups.size(); i++) {
+            Section parentSection = savedSections.get(i);
+            for (ChunkVector chunkVector : groups.get(i).chunks()) {
+                Chunk chunk = Chunk.create(parentSection, document, chunkVector.chunk());
+                chunk.updateEmbedding(chunkVector.embedding());
+                chunksToSave.add(chunk);
+            }
+        }
+        chunkRepository.saveAll(chunksToSave);
     }
 
     private String buildSummaryInput(List<ExtractedSection> sections) {
@@ -82,43 +131,5 @@ public class DocumentAnalysisService {
                 .map(extracted -> SourceUnit.create(document, extracted, extractedDocument.sourceType()))
                 .toList();
         sourceUnitRepository.saveAll(sourceUnits);
-    }
-
-    private List<Section> saveSections(Document document, List<ExtractedSection> extractedSections) {
-        List<Section> sections = extractedSections.stream()
-                .map(extracted -> Section.create(document, extracted))
-                .toList();
-        return sectionRepository.saveAll(sections);
-    }
-
-    private List<Chunk> saveChunks(
-            Document document,
-            List<Section> savedSections,
-            List<ExtractedSection> extractedSections,
-            List<ExtractedChunk> extractedChunks
-    ) {
-        List<Chunk> chunks = extractedChunks.stream()
-                .map(extractedChunk -> {
-                    Section parentSection = findParentSection(savedSections, extractedSections, extractedChunk);
-                    return Chunk.create(parentSection, document, extractedChunk);
-                })
-                .toList();
-        return chunkRepository.saveAll(chunks);
-    }
-
-    private Section findParentSection(
-            List<Section> savedSections,
-            List<ExtractedSection> extractedSections,
-            ExtractedChunk chunk
-    ) {
-        for (int i = 0; i < extractedSections.size(); i++) {
-            ExtractedSection extractedSection = extractedSections.get(i);
-            if (extractedSection.sourceIndices().contains(chunk.sourceStartIndex())) {
-                return savedSections.get(i);
-            }
-        }
-        throw new IllegalStateException(
-                "No parent section found for chunk sourceStartIndex=" + chunk.sourceStartIndex()
-        );
     }
 }
