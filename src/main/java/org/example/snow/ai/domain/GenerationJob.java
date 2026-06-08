@@ -53,7 +53,12 @@ public class GenerationJob {
     @Column(name = "quiz_type", nullable = false, length = 20)
     private String quizType;
 
-    @Column(name = "difficulty", nullable = false, length = 10)
+    /**
+     * @deprecated 난이도 입력 제거(function-specs #31). 신규 row에는 기록하지 않으며 컬럼은
+     * 되돌리기 용이성을 위해 nullable로 보류한다. 기존 row 매핑을 위해 필드만 유지한다.
+     */
+    @Deprecated
+    @Column(name = "difficulty", length = 10)
     private String difficulty;
 
     @Column(name = "quiz_count")
@@ -87,7 +92,6 @@ public class GenerationJob {
             PromptTemplate promptTemplate,
             String scopeText,
             String quizType,
-            String difficulty,
             Integer quizCount,
             String modelName
     ) {
@@ -96,7 +100,6 @@ public class GenerationJob {
         this.promptTemplate = promptTemplate;
         this.scopeText = scopeText;
         this.quizType = quizType;
-        this.difficulty = difficulty;
         this.quizCount = quizCount;
         this.resultCount = 0;
         this.status = GenerationJobStatus.QUEUED;
@@ -109,11 +112,10 @@ public class GenerationJob {
             PromptTemplate promptTemplate,
             String scopeText,
             String quizType,
-            String difficulty,
             Integer quizCount,
             String modelName
     ) {
-        return new GenerationJob(user, notebook, promptTemplate, scopeText, quizType, difficulty, quizCount, modelName);
+        return new GenerationJob(user, notebook, promptTemplate, scopeText, quizType, quizCount, modelName);
     }
 
     public void start() {

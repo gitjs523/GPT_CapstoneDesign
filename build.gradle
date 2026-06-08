@@ -68,6 +68,14 @@ tasks.named('test') {
             systemProperty p, System.getProperty(p)
         }
     }
+    // 측정 하니스용 프로퍼티는 prefix로 전달 (measure./batch./conc./ollama.)
+    System.getProperties().each { k, v ->
+        def name = k.toString()
+        if (name.startsWith('measure.') || name.startsWith('batch.')
+                || name.startsWith('conc.') || name.startsWith('ollama.')) {
+            systemProperty name, v.toString()
+        }
+    }
     def envFile = rootProject.file('.env')
     if (envFile.exists()) {
         envFile.readLines().each { line ->

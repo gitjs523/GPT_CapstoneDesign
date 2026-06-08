@@ -70,7 +70,6 @@ public class QuizGenerationService {
         QuizGenerationCommand command = new QuizGenerationCommand(
                 job.getScopeText(),
                 job.getQuizType(),
-                job.getDifficulty(),
                 job.getQuizCount()
         );
         List<GeneratedQuiz> savedQuizzes = generateAndSaveQuizzes(job, command, retrievedSections, retrievedSectionIds, resolvedPromptTemplate);
@@ -90,7 +89,6 @@ public class QuizGenerationService {
                 GeneratedQuizDraft draft = ollamaService.generateQuiz(new QuizGenerationPrompt(
                         command.scopeText(),
                         command.quizType(),
-                        command.difficulty(),
                         quizOrder,
                         retrievedSections,
                         promptTemplate
