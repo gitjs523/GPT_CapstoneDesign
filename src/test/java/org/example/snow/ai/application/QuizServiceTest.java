@@ -99,7 +99,7 @@ class QuizServiceTest {
         when(generatedQuizRepository.findAllByGenerationJob_JobIdAndDeletedAtIsNullOrderByQuizOrderAsc(55L))
                 .thenReturn(List.of());
 
-        QuizGenerationCommand command = new QuizGenerationCommand("RAG 단원", "MULTIPLE_CHOICE", 3);
+        QuizGenerationCommand command = new QuizGenerationCommand("RAG 단원", "객관식", 3);
         QuizGenerationJobResult result = quizService.requestGeneration(1L, 10L, command);
 
         assertThat(result.jobId()).isEqualTo(55L);
@@ -127,7 +127,7 @@ class QuizServiceTest {
         when(generatedQuizRepository.findAllByGenerationJob_JobIdAndDeletedAtIsNullOrderByQuizOrderAsc(56L))
                 .thenReturn(List.of());
 
-        quizService.requestGeneration(1L, 10L, new QuizGenerationCommand("단원", "MULTIPLE_CHOICE", 1));
+        quizService.requestGeneration(1L, 10L, new QuizGenerationCommand("단원", "객관식", 1));
 
         verify(generationJobRepository).save(any());
     }
@@ -137,7 +137,7 @@ class QuizServiceTest {
         when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> quizService.requestGeneration(
-                1L, 10L, new QuizGenerationCommand("단원", "MULTIPLE_CHOICE", 1)
+                1L, 10L, new QuizGenerationCommand("단원", "객관식", 1)
         ))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ErrorCode.NOTEBOOK_NOT_FOUND.getMessage());
@@ -151,7 +151,7 @@ class QuizServiceTest {
         when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
 
         assertThatThrownBy(() -> quizService.requestGeneration(
-                1L, 10L, new QuizGenerationCommand("단원", "MULTIPLE_CHOICE", 1)
+                1L, 10L, new QuizGenerationCommand("단원", "객관식", 1)
         ))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ErrorCode.NOTEBOOK_ACCESS_DENIED.getMessage());
@@ -382,7 +382,7 @@ class QuizServiceTest {
 
     private GenerationJob createJob(Notebook notebook, Long jobId) {
         GenerationJob job = GenerationJob.create(
-                notebook.getUser(), notebook, null, "RAG 단원", "MULTIPLE_CHOICE", 2, "qwen3:4b"
+                notebook.getUser(), notebook, null, "RAG 단원", "객관식", 2, "qwen3:4b"
         );
         ReflectionTestUtils.setField(job, "jobId", jobId);
         ReflectionTestUtils.setField(job, "createdAt", LocalDateTime.of(2026, 5, 20, 10, 0));
@@ -391,7 +391,7 @@ class QuizServiceTest {
 
     private GeneratedQuiz createQuiz(GenerationJob job, Long quizId, int quizOrder) {
         GeneratedQuiz quiz = GeneratedQuiz.create(
-                job, quizOrder, "MULTIPLE_CHOICE", "문제 " + quizOrder,
+                job, quizOrder, "객관식", "문제 " + quizOrder,
                 "[\"보기1\",\"보기2\"]", "보기1", "해설", List.of(100L)
         );
         ReflectionTestUtils.setField(quiz, "quizId", quizId);
@@ -401,7 +401,7 @@ class QuizServiceTest {
 
     private GeneratedQuiz createQuizWithSources(GenerationJob job, Long quizId, List<Long> sourceSectionIds) {
         GeneratedQuiz quiz = GeneratedQuiz.create(
-                job, 1, "MULTIPLE_CHOICE", "문제",
+                job, 1, "객관식", "문제",
                 "[\"보기1\",\"보기2\"]", "보기1", "해설", sourceSectionIds
         );
         ReflectionTestUtils.setField(quiz, "quizId", quizId);
