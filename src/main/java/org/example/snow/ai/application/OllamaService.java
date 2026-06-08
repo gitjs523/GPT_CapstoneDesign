@@ -300,7 +300,6 @@ public class OllamaService {
         return prompt.promptTemplate().userPromptTemplate()
                 .replace("{scopeText}", prompt.scopeText())
                 .replace("{quizType}", prompt.quizType())
-                .replace("{difficulty}", prompt.difficulty())
                 .replace("{quizOrder}", Integer.toString(prompt.quizOrder()))
                 .replace("{contextSections}", contextBlocks)
                 .replace("{outputSchema}", prompt.promptTemplate().outputSchema());

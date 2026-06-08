@@ -157,7 +157,6 @@ class QuizQaServiceTest {
                 null,
                 "RAG",
                 "객관식",
-                "중",
                 1,
                 "qwen3:4b-q4_K_M"
         );

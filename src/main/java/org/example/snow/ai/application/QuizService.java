@@ -67,7 +67,6 @@ public class QuizService {
                 promptTemplate,
                 command.scopeText(),
                 command.quizType(),
-                command.difficulty(),
                 command.quizCount(),
                 chatModelName
         ));

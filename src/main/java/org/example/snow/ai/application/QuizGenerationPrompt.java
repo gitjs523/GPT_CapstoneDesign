@@ -5,7 +5,6 @@ import java.util.List;
 public record QuizGenerationPrompt(
         String scopeText,
         String quizType,
-        String difficulty,
         int quizOrder,
         List<RetrievedSection> sections,
         ResolvedPromptTemplate promptTemplate

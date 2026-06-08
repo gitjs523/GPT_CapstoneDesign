@@ -47,7 +47,6 @@ public record ResolvedPromptTemplate(
                         생성 요청:
                         - 범위: {scopeText}
                         - 문제 유형: {quizType}
-                        - 난이도: {difficulty}
                         - 현재 문제 번호: {quizOrder}
 
                         검색된 강의자료:

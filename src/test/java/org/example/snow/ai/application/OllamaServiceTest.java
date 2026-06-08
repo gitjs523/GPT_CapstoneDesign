@@ -177,7 +177,6 @@ class OllamaServiceTest {
         GeneratedQuizDraft quiz = ollamaService.generateQuiz(new QuizGenerationPrompt(
                 "RAG 단원",
                 "MULTIPLE_CHOICE",
-                "중",
                 1,
                 java.util.List.of(new RetrievedSection(
                         "100",
@@ -266,7 +265,6 @@ class OllamaServiceTest {
                 null,
                 "RAG",
                 "객관식",
-                "중",
                 1,
                 "qwen3:4b-q4_K_M"
         );
