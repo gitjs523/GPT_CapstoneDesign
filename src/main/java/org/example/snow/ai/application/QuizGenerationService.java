@@ -28,6 +28,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class QuizGenerationService {
 
+    private static final String NO_RETRIEVAL_FAILURE_REASON =
+            "문제 생성을 위한 문서 근거를 찾지 못했습니다. 문서 분석/임베딩 완료 여부 또는 scopeText를 확인하세요.";
+
     private final GenerationJobRepository generationJobRepository;
     private final SectionRepository sectionRepository;
     private final GenerationContextRepository generationContextRepository;
@@ -42,9 +45,12 @@ public class QuizGenerationService {
             GenerationJob job = generationJobRepository.findByIdWithDetails(jobId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.GENERATION_JOB_NOT_FOUND));
             execute(job);
-        } catch (Exception e) {
-            log.error("Quiz generation failed. jobId={}", jobId, e);
-            statusManager.markFailed(jobId);
+        } catch (RuntimeException exception) {
+            log.error("Quiz generation failed. jobId={}", jobId, exception);
+            statusManager.markFailed(
+                    jobId,
+                    "퀴즈 생성 처리 중 오류가 발생했습니다: " + extractFailureMessage(exception)
+            );
         }
     }
 
@@ -58,7 +64,7 @@ public class QuizGenerationService {
         );
 
         if (retrievedSections.isEmpty()) {
-            statusManager.markFailed(job.getJobId());
+            statusManager.markFailed(job.getJobId(), NO_RETRIEVAL_FAILURE_REASON);
             return;
         }
 
@@ -72,11 +78,22 @@ public class QuizGenerationService {
                 job.getQuizType(),
                 job.getQuizCount()
         );
-        List<GeneratedQuiz> savedQuizzes = generateAndSaveQuizzes(job, command, retrievedSections, retrievedSectionIds, resolvedPromptTemplate);
-        updateJobStatus(job.getJobId(), job.getQuizCount(), savedQuizzes.size());
+        QuizGenerationAttemptResult attemptResult = generateAndSaveQuizzes(
+                job,
+                command,
+                retrievedSections,
+                retrievedSectionIds,
+                resolvedPromptTemplate
+        );
+        updateJobStatus(
+                job.getJobId(),
+                job.getQuizCount(),
+                attemptResult.savedQuizzes().size(),
+                attemptResult.failureReasons()
+        );
     }
 
-    private List<GeneratedQuiz> generateAndSaveQuizzes(
+    private QuizGenerationAttemptResult generateAndSaveQuizzes(
             GenerationJob job,
             QuizGenerationCommand command,
             List<RetrievedSection> retrievedSections,
@@ -84,6 +101,7 @@ public class QuizGenerationService {
             ResolvedPromptTemplate promptTemplate
     ) {
         List<GeneratedQuiz> savedQuizzes = new java.util.ArrayList<>();
+        List<String> failureReasons = new java.util.ArrayList<>();
         for (int quizOrder = 1; quizOrder <= command.quizCount(); quizOrder++) {
             try {
                 GeneratedQuizDraft draft = ollamaService.generateQuiz(new QuizGenerationPrompt(
@@ -106,11 +124,12 @@ public class QuizGenerationService {
                         sourceSectionIds
                 ));
                 savedQuizzes.add(quiz);
-            } catch (RuntimeException e) {
-                log.warn("Single quiz generation failed. jobId={}, quizOrder={}", job.getJobId(), quizOrder, e);
+            } catch (RuntimeException exception) {
+                log.warn("Single quiz generation failed. jobId={}, quizOrder={}", job.getJobId(), quizOrder, exception);
+                failureReasons.add("quizOrder=" + quizOrder + ": " + extractFailureMessage(exception));
             }
         }
-        return savedQuizzes;
+        return new QuizGenerationAttemptResult(savedQuizzes, failureReasons);
     }
 
     private void saveGenerationContexts(
@@ -137,13 +156,20 @@ public class QuizGenerationService {
         generationContextRepository.saveAll(contexts);
     }
 
-    private void updateJobStatus(Long jobId, int requestedCount, int savedCount) {
+    private void updateJobStatus(Long jobId, int requestedCount, int savedCount, List<String> failureReasons) {
         if (savedCount == requestedCount) {
             statusManager.markComplete(jobId, savedCount);
         } else if (savedCount > 0) {
-            statusManager.markPartialComplete(jobId, savedCount);
+            statusManager.markPartialComplete(
+                    jobId,
+                    savedCount,
+                    buildFailureReason("일부 문제 생성에 실패했습니다.", failureReasons)
+            );
         } else {
-            statusManager.markFailed(jobId);
+            statusManager.markFailed(
+                    jobId,
+                    buildFailureReason("문제 생성에 실패했습니다.", failureReasons)
+            );
         }
     }
 
@@ -157,15 +183,28 @@ public class QuizGenerationService {
     }
 
     private List<Long> resolveSourceSectionIds(List<Long> generatedSourceIds, List<Long> retrievedSectionIds) {
-        Set<Long> retrievedIdSet = Set.copyOf(retrievedSectionIds);
-        List<Long> validGeneratedIds = generatedSourceIds.stream()
-                .filter(retrievedIdSet::contains)
+        if (generatedSourceIds == null || generatedSourceIds.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "모델이 sourceSectionIds를 반환하지 않았습니다. validSectionIds=" + retrievedSectionIds
+            );
+        }
+
+        Set<Long> retrievedIdSet = new LinkedHashSet<>(retrievedSectionIds);
+        List<Long> distinctGeneratedIds = generatedSourceIds.stream()
                 .distinct()
                 .toList();
-        if (!validGeneratedIds.isEmpty()) {
-            return validGeneratedIds;
+
+        List<Long> invalidGeneratedIds = distinctGeneratedIds.stream()
+                .filter(sectionId -> !retrievedIdSet.contains(sectionId))
+                .toList();
+        if (!invalidGeneratedIds.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "sourceSectionIds에 유효하지 않은 sectionId가 포함되었습니다. invalidSectionIds="
+                            + invalidGeneratedIds + ", validSectionIds=" + retrievedSectionIds
+            );
         }
-        return List.copyOf(new LinkedHashSet<>(retrievedSectionIds));
+
+        return distinctGeneratedIds;
     }
 
     private Long parseSectionId(String sectionId) {
@@ -176,6 +215,43 @@ public class QuizGenerationService {
             return Long.valueOf(sectionId.trim());
         } catch (NumberFormatException e) {
             return null;
+        }
+    }
+
+    private String buildFailureReason(String defaultMessage, List<String> failureReasons) {
+        if (failureReasons == null || failureReasons.isEmpty()) {
+            return defaultMessage;
+        }
+        return defaultMessage + " " + String.join(" / ", failureReasons);
+    }
+
+    private String extractFailureMessage(RuntimeException exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (StringUtils.hasText(current.getMessage())) {
+                return sanitizeFailureMessage(current.getMessage());
+            }
+            current = current.getCause();
+        }
+        return "상세 원인을 확인할 수 없습니다.";
+    }
+
+    private String sanitizeFailureMessage(String message) {
+        String sanitized = message.replaceAll("\\s+", " ").trim();
+        if (sanitized.length() > 500) {
+            return sanitized.substring(0, 500);
+        }
+        return sanitized;
+    }
+
+    private record QuizGenerationAttemptResult(
+            List<GeneratedQuiz> savedQuizzes,
+            List<String> failureReasons
+    ) {
+
+        private QuizGenerationAttemptResult {
+            savedQuizzes = savedQuizzes == null ? List.of() : List.copyOf(savedQuizzes);
+            failureReasons = failureReasons == null ? List.of() : List.copyOf(failureReasons);
         }
     }
 }

@@ -34,6 +34,8 @@ ollama:
     batch-size: ${OLLAMA_EMBEDDING_BATCH_SIZE:20}
     connect-timeout-seconds: ${OLLAMA_EMBEDDING_CONNECT_TIMEOUT:5}
     read-timeout-seconds: ${OLLAMA_EMBEDDING_READ_TIMEOUT:30}
+  ocr:
+    enabled: false
 
 cloud:
   aws:
@@ -48,6 +50,9 @@ model-queue:
 qa-job:
   retention-minutes: 30
   cleanup-interval-ms: 600000
+
+cors:
+  allowed-origins: http://localhost:5500
 
 auth:
   jwt:

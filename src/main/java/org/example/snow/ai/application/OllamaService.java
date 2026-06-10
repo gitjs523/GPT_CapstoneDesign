@@ -1,6 +1,7 @@
 package org.example.snow.ai.application;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -302,7 +303,17 @@ public class OllamaService {
                 .replace("{quizType}", prompt.quizType())
                 .replace("{quizOrder}", Integer.toString(prompt.quizOrder()))
                 .replace("{contextSections}", contextBlocks)
+                .replace("{validSectionIds}", buildValidSectionIds(prompt.sections()))
                 .replace("{outputSchema}", prompt.promptTemplate().outputSchema());
+    }
+
+    private String buildValidSectionIds(List<RetrievedSection> sections) {
+        return sections.stream()
+                .map(RetrievedSection::sectionId)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .distinct()
+                .collect(Collectors.joining(", ", "[", "]"));
     }
 
     private GeneratedQuizDraft parseGeneratedQuiz(String rawContent, String fallbackQuizType) {

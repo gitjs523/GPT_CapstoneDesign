@@ -23,7 +23,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -93,7 +96,7 @@ class QuizGenerationServiceTest {
     }
 
     @Test
-    void failsJobWhenNoSectionsRetrieved() {
+    void failsJobWithReasonWhenNoSectionsRetrieved() {
         Notebook notebook = createNotebook(1L, 10L);
         GenerationJob job = createJob(notebook, 55L, "없는 단원", 2);
 
@@ -103,7 +106,63 @@ class QuizGenerationServiceTest {
         quizGenerationService.run(55L);
 
         verify(statusManager).markRunning(55L);
-        verify(statusManager).markFailed(55L);
+        verify(statusManager).markFailed(eq(55L), contains("문서 근거를 찾지 못했습니다"));
+    }
+
+    @Test
+    void failsJobWhenGeneratedSourceSectionIdsAreOutsideRetrievedSections() {
+        Notebook notebook = createNotebook(1L, 10L);
+        Section section = createSection(notebook, 100L);
+        GenerationJob job = createJob(notebook, 55L, "RAG 단원", 1);
+        RetrievedSection retrievedSection = new RetrievedSection(
+                "100", "RAG", "RAG는 검색 증강 생성이다.", "lecture.pdf", 1, 1, 1, 0.93
+        );
+
+        when(generationJobRepository.findByIdWithDetails(55L)).thenReturn(Optional.of(job));
+        when(embeddingSearchService.searchSimilarSections(10L, "RAG 단원", 8)).thenReturn(List.of(retrievedSection));
+        when(sectionRepository.findAllById(List.of(100L))).thenReturn(List.of(section));
+        when(ollamaService.generateQuiz(any()))
+                .thenReturn(new GeneratedQuizDraft(
+                        "MULTIPLE_CHOICE",
+                        "RAG의 의미로 가장 알맞은 것은?",
+                        "[\"검색 증강 생성\",\"정렬 알고리즘\"]",
+                        "검색 증강 생성",
+                        "RAG는 검색된 문맥을 활용해 답변이나 문제를 생성하는 방식이다.",
+                        List.of(1L)
+                ));
+
+        quizGenerationService.run(55L);
+
+        verify(generatedQuizRepository, never()).save(any());
+        verify(statusManager).markFailed(eq(55L), contains("유효하지 않은 sectionId"));
+    }
+
+    @Test
+    void failsJobWhenGeneratedSourceSectionIdsAreEmpty() {
+        Notebook notebook = createNotebook(1L, 10L);
+        Section section = createSection(notebook, 100L);
+        GenerationJob job = createJob(notebook, 55L, "RAG 단원", 1);
+        RetrievedSection retrievedSection = new RetrievedSection(
+                "100", "RAG", "RAG는 검색 증강 생성이다.", "lecture.pdf", 1, 1, 1, 0.93
+        );
+
+        when(generationJobRepository.findByIdWithDetails(55L)).thenReturn(Optional.of(job));
+        when(embeddingSearchService.searchSimilarSections(10L, "RAG 단원", 8)).thenReturn(List.of(retrievedSection));
+        when(sectionRepository.findAllById(List.of(100L))).thenReturn(List.of(section));
+        when(ollamaService.generateQuiz(any()))
+                .thenReturn(new GeneratedQuizDraft(
+                        "MULTIPLE_CHOICE",
+                        "RAG의 의미로 가장 알맞은 것은?",
+                        "[\"검색 증강 생성\",\"정렬 알고리즘\"]",
+                        "검색 증강 생성",
+                        "RAG는 검색된 문맥을 활용해 답변이나 문제를 생성하는 방식이다.",
+                        List.of()
+                ));
+
+        quizGenerationService.run(55L);
+
+        verify(generatedQuizRepository, never()).save(any());
+        verify(statusManager).markFailed(eq(55L), contains("sourceSectionIds를 반환하지 않았습니다"));
     }
 
     private Notebook createNotebook(Long userId, Long notebookId) {

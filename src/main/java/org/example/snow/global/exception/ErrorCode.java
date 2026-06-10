@@ -22,6 +22,7 @@ public enum ErrorCode {
     DOCUMENT_NOT_COMPLETED(HttpStatus.CONFLICT, "DOC_013", "문서 분석이 완료된 후에 조회할 수 있습니다."),
     SECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "DOC_014", "섹션을 찾을 수 없습니다."),
     DOCUMENT_EMPTY_CONTENT(HttpStatus.UNPROCESSABLE_ENTITY, "DOC_016", "문서에서 추출할 수 있는 텍스트가 없습니다. 스캔 이미지 파일이거나 내용이 없는 파일일 수 있습니다."),
+    OCR_TEXT_EXTRACTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "DOC_017", "OCR text extraction failed."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "AUTH_001", "이미 사용 중인 이메일입니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_002", "이메일 또는 비밀번호가 올바르지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_003", "인증이 필요합니다."),

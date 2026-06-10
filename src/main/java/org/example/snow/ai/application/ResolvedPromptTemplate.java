@@ -52,6 +52,9 @@ public record ResolvedPromptTemplate(
                         검색된 강의자료:
                         {contextSections}
 
+                        유효한 sectionId 목록:
+                        {validSectionIds}
+
                         출력 스키마:
                         {outputSchema}
 
@@ -62,7 +65,9 @@ public record ResolvedPromptTemplate(
                         - 중요한 전공 용어는 필요한 경우 한국어 번역 뒤에 영어 원어를 괄호로 병기한다.
                         - 객관식이면 choices는 JSON 배열 문자열로 작성한다.
                         - 주관식이면 choices는 빈 문자열로 둔다.
-                        - sourceSectionIds에는 실제 근거로 사용한 sectionId만 숫자 배열로 넣는다.
+                        - sourceSectionIds에는 반드시 유효한 sectionId 목록에 있는 숫자만 넣는다.
+                        - sourceSectionIds에는 문제 생성에 실제로 사용한 sectionId를 1개 이상 넣는다.
+                        - 컨텍스트에 없는 sectionId, 예시 숫자, 임의 숫자는 절대 넣지 않는다.
                         """,
                 """
                         {
@@ -71,7 +76,7 @@ public record ResolvedPromptTemplate(
                           "choices": ["string"],
                           "answer": "string",
                           "explanation": "string",
-                          "sourceSectionIds": [1]
+                          "sourceSectionIds": []
                         }
                         """
         );
