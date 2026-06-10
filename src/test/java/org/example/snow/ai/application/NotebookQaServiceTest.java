@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -100,6 +101,21 @@ class NotebookQaServiceTest {
 
         verify(qaJobStore, never()).create(anyLong(), anyLong());
         verify(notebookQaProcessor, never()).process(any(), any(), any());
+    }
+
+    @Test
+    void ask_throwsWhenNoAnalyzedDocument() {
+        Notebook notebook = createNotebook(1L, 10L);
+        when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
+        doThrow(new BusinessException(ErrorCode.NO_ANALYZED_DOCUMENT))
+                .when(documentService).validateHasAnalyzedDocument(10L);
+
+        assertThatThrownBy(() -> notebookQaService.ask(1L, 10L, "질문"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.NO_ANALYZED_DOCUMENT.getMessage());
+
+        verify(qaJobStore, never()).create(anyLong(), anyLong());
+        verify(modelQueueService, never()).submitGeneration(any());
     }
 
     // ─────────────────────────── getHistories ────────────────────────────────

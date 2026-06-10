@@ -36,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -155,6 +156,38 @@ class QuizServiceTest {
         ))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ErrorCode.NOTEBOOK_ACCESS_DENIED.getMessage());
+
+        verify(generationJobRepository, never()).save(any());
+    }
+
+    @Test
+    void requestGeneration_throwsWhenNoAnalyzedDocument() {
+        Notebook notebook = createNotebook(1L, 10L);
+        when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
+        doThrow(new BusinessException(ErrorCode.NO_ANALYZED_DOCUMENT))
+                .when(documentService).validateHasAnalyzedDocument(10L);
+
+        assertThatThrownBy(() -> quizService.requestGeneration(
+                1L, 10L, new QuizGenerationCommand("단원", "객관식", 1)
+        ))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.NO_ANALYZED_DOCUMENT.getMessage());
+
+        verify(generationJobRepository, never()).save(any());
+    }
+
+    @Test
+    void requestGeneration_throwsWhenQuizCountExceedsSectionLimit() {
+        Notebook notebook = createNotebook(1L, 10L);
+        when(notebookRepository.findByNotebookIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notebook));
+        doThrow(new BusinessException(ErrorCode.QUIZ_COUNT_LIMIT_EXCEEDED))
+                .when(documentService).validateQuizCountWithinSectionLimit(10L, 5);
+
+        assertThatThrownBy(() -> quizService.requestGeneration(
+                1L, 10L, new QuizGenerationCommand("단원", "객관식", 5)
+        ))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.QUIZ_COUNT_LIMIT_EXCEEDED.getMessage());
 
         verify(generationJobRepository, never()).save(any());
     }

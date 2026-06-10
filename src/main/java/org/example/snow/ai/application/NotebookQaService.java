@@ -49,6 +49,7 @@ public class NotebookQaService {
 
         getNotebookWithOwnershipCheck(userId, notebookId);
         documentService.validateNoneAnalyzing(notebookId);
+        documentService.validateHasAnalyzedDocument(notebookId);
 
         if (!modelQueueService.canAcceptGeneration()) {
             throw new BusinessException(ErrorCode.MODEL_QUEUE_FULL);

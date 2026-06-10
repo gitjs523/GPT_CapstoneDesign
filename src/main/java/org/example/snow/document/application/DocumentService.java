@@ -145,6 +145,33 @@ public class DocumentService {
         }
     }
 
+    /**
+     * 노트북에 분석 완료(COMPLETED) 문서가 1개도 없으면 거부한다.
+     * 문제 생성·질문 모두 재료가 될 분석 완료 문서가 없으면 진행 불가다.
+     * {@link #validateNoneAnalyzing} 이후에 호출해, 분석 중 문서가 있으면 'DOCUMENT_ANALYZING'이
+     * 먼저 안내되고, 분석 중도 완료도 없는 빈/실패 노트북에서만 이 예외가 뜨도록 한다.
+     */
+    public void validateHasAnalyzedDocument(Long notebookId) {
+        if (!documentRepository.existsByNotebook_NotebookIdAndAnalysisStatusAndDeletedAtIsNull(
+                notebookId, AnalysisStatus.COMPLETED)) {
+            throw new BusinessException(ErrorCode.NO_ANALYZED_DOCUMENT);
+        }
+    }
+
+    /**
+     * 요청한 문제 수가 생성 가능한 최대치를 넘으면 거부한다 (function-specs #32).
+     * 상한 = 노트북 내 분석 완료(COMPLETED) 문서의 전체 Section 수. quiz 1개당 의미 단위 Section
+     * 1개에 대응시켜 중복 문제를 막으려는 정책이라, 가진 Section 수보다 많은 문제는 만들 수 없다.
+     * (DTO의 정적 @Max(20)는 운영 보호용 전역 가드로 별도 적용되어, 실효 상한은 min(Section 수, 20)다.)
+     * {@link #validateHasAnalyzedDocument} 이후에 호출한다(분석 완료 문서가 있으면 Section ≥ 1 보장).
+     */
+    public void validateQuizCountWithinSectionLimit(Long notebookId, int quizCount) {
+        long sectionLimit = sectionRepository.countByNotebookAndDocumentStatus(notebookId, AnalysisStatus.COMPLETED);
+        if (quizCount > sectionLimit) {
+            throw new BusinessException(ErrorCode.QUIZ_COUNT_LIMIT_EXCEEDED);
+        }
+    }
+
     public void validateNoneAnalyzingByUser(Long userId) {
         if (documentRepository.existsByNotebook_User_UserIdAndAnalysisStatusInAndDeletedAtIsNull(
                 userId, IN_PROGRESS_STATUSES)) {

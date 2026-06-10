@@ -53,6 +53,8 @@ public class QuizService {
     public QuizGenerationJobResult requestGeneration(Long userId, Long notebookId, QuizGenerationCommand command) {
         Notebook notebook = getNotebookWithOwnershipCheck(userId, notebookId);
         documentService.validateNoneAnalyzing(notebookId);
+        documentService.validateHasAnalyzedDocument(notebookId);
+        documentService.validateQuizCountWithinSectionLimit(notebookId, command.quizCount());
 
         if (!modelQueueService.canAcceptGeneration()) {
             throw new BusinessException(ErrorCode.MODEL_QUEUE_FULL);

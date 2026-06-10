@@ -311,6 +311,44 @@ class DocumentServiceTest {
                 .hasMessage(ErrorCode.NOTEBOOK_ACCESS_DENIED.getMessage());
     }
 
+    // ──────────────────── validateHasAnalyzedDocument ────────────────────────
+
+    @Test
+    void validateHasAnalyzedDocument_passesWhenCompletedDocumentExists() {
+        when(documentRepository.existsByNotebook_NotebookIdAndAnalysisStatusAndDeletedAtIsNull(10L, AnalysisStatus.COMPLETED))
+                .thenReturn(true);
+
+        documentService.validateHasAnalyzedDocument(10L); // 예외 없이 통과
+    }
+
+    @Test
+    void validateHasAnalyzedDocument_throwsWhenNoCompletedDocument() {
+        when(documentRepository.existsByNotebook_NotebookIdAndAnalysisStatusAndDeletedAtIsNull(10L, AnalysisStatus.COMPLETED))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> documentService.validateHasAnalyzedDocument(10L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.NO_ANALYZED_DOCUMENT.getMessage());
+    }
+
+    // ────────────────── validateQuizCountWithinSectionLimit ───────────────────
+
+    @Test
+    void validateQuizCountWithinSectionLimit_passesWhenAtLimit() {
+        when(sectionRepository.countByNotebookAndDocumentStatus(10L, AnalysisStatus.COMPLETED)).thenReturn(5L);
+
+        documentService.validateQuizCountWithinSectionLimit(10L, 5); // 경계: quizCount == 상한 → 통과
+    }
+
+    @Test
+    void validateQuizCountWithinSectionLimit_throwsWhenExceedsLimit() {
+        when(sectionRepository.countByNotebookAndDocumentStatus(10L, AnalysisStatus.COMPLETED)).thenReturn(3L);
+
+        assertThatThrownBy(() -> documentService.validateQuizCountWithinSectionLimit(10L, 4))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ErrorCode.QUIZ_COUNT_LIMIT_EXCEEDED.getMessage());
+    }
+
     // ──────────────────────────── cascadeDelete ──────────────────────────────
 
     @Test
