@@ -175,7 +175,7 @@ class QuizGenerationServiceTest {
 
     private GenerationJob createJob(Notebook notebook, Long jobId, String scopeText, int quizCount) {
         GenerationJob job = GenerationJob.create(
-                notebook.getUser(), notebook, null, scopeText, "MULTIPLE_CHOICE", quizCount, "qwen3:4b"
+                notebook.getUser(), notebook, null, scopeText, "객관식", quizCount, "qwen3:4b"
         );
         ReflectionTestUtils.setField(job, "jobId", jobId);
         ReflectionTestUtils.setField(job, "createdAt", LocalDateTime.of(2026, 5, 13, 14, 0));

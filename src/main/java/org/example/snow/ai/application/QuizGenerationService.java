@@ -116,7 +116,9 @@ public class QuizGenerationService {
                 GeneratedQuiz quiz = generatedQuizRepository.save(GeneratedQuiz.create(
                         job,
                         quizOrder,
-                        StringUtils.hasText(draft.quizType()) ? draft.quizType() : command.quizType(),
+                        // quizType은 검증된 요청 입력값이 단일 출처다. 모델이 echo한 quizType("descriptive" 등)은
+                        // 신뢰하지 않고 무시한다 (소형 모델이 영어/임의값으로 뱉어 저장값이 어긋나는 것 방지).
+                        command.quizType(),
                         draft.questionText(),
                         draft.choices(),
                         draft.answer(),
