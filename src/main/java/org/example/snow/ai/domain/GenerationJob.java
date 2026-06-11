@@ -74,6 +74,9 @@ public class GenerationJob {
     @Column(name = "model_name", length = 100)
     private String modelName;
 
+    @Column(name = "failure_reason", columnDefinition = "text")
+    private String failureReason;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -120,24 +123,28 @@ public class GenerationJob {
 
     public void start() {
         this.status = GenerationJobStatus.RUNNING;
+        this.failureReason = null;
         this.startedAt = LocalDateTime.now();
     }
 
     public void complete(int resultCount) {
         this.status = GenerationJobStatus.COMPLETED;
         this.resultCount = resultCount;
+        this.failureReason = null;
         this.finishedAt = LocalDateTime.now();
     }
 
-    public void partialComplete(int resultCount) {
+    public void partialComplete(int resultCount, String failureReason) {
         this.status = GenerationJobStatus.PARTIAL_COMPLETED;
         this.resultCount = resultCount;
+        this.failureReason = failureReason;
         this.finishedAt = LocalDateTime.now();
     }
 
-    public void fail(int resultCount) {
+    public void fail(int resultCount, String failureReason) {
         this.status = GenerationJobStatus.FAILED;
         this.resultCount = resultCount;
+        this.failureReason = failureReason;
         this.finishedAt = LocalDateTime.now();
     }
 

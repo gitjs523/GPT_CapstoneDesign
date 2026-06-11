@@ -24,8 +24,13 @@ public class GenerationJobStatusManager {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markFailed(Long jobId) {
+        markFailed(jobId, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markFailed(Long jobId, String failureReason) {
         generationJobRepository.findById(jobId).ifPresent(job -> {
-            job.fail(0);
+            job.fail(0, failureReason);
             generationJobRepository.save(job);
             log.error("Quiz generation failed and marked as FAILED. jobId={}", jobId);
         });
@@ -41,8 +46,13 @@ public class GenerationJobStatusManager {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markPartialComplete(Long jobId, int savedCount) {
+        markPartialComplete(jobId, savedCount, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markPartialComplete(Long jobId, int savedCount, String failureReason) {
         generationJobRepository.findById(jobId).ifPresent(job -> {
-            job.partialComplete(savedCount);
+            job.partialComplete(savedCount, failureReason);
             generationJobRepository.save(job);
         });
     }

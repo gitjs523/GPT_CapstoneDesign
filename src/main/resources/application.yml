@@ -48,6 +48,16 @@ ollama:
     batch-size: ${OLLAMA_EMBEDDING_BATCH_SIZE:20}
     connect-timeout-seconds: ${OLLAMA_EMBEDDING_CONNECT_TIMEOUT:5}
     read-timeout-seconds: ${OLLAMA_EMBEDDING_READ_TIMEOUT:30}
+  ocr:
+    enabled: ${OLLAMA_OCR_ENABLED:true}
+    url: ${OLLAMA_OCR_URL:http://localhost:11434}
+    model: ${OLLAMA_OCR_MODEL:glm-ocr:latest}
+    connect-timeout-seconds: ${OLLAMA_OCR_CONNECT_TIMEOUT:5}
+    read-timeout-seconds: ${OLLAMA_OCR_READ_TIMEOUT:180}
+    min-text-chars: ${OLLAMA_OCR_MIN_TEXT_CHARS:30}
+    render-dpi: ${OLLAMA_OCR_RENDER_DPI:180}
+    powerpoint-enabled: ${OLLAMA_OCR_POWERPOINT_ENABLED:true}
+    prompt: "${OLLAMA_OCR_PROMPT:Text Recognition: Extract only visible text from this document image. Preserve line breaks. Do not explain, summarize, or infer missing text.}"
 
 auth:
   jwt:
@@ -91,3 +101,4 @@ cors:
 server:
   port: ${SERVER_PORT:8080}
   address: 0.0.0.0
+  forward-headers-strategy: framework

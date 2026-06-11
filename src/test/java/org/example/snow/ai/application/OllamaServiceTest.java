@@ -196,6 +196,10 @@ class OllamaServiceTest {
 
         assertThat(userPrompt.getValue()).contains("RAG 단원");
         assertThat(userPrompt.getValue()).contains("sectionId: 100");
+        assertThat(userPrompt.getValue()).contains("유효한 sectionId 목록:");
+        assertThat(userPrompt.getValue()).contains("[100]");
+        assertThat(userPrompt.getValue()).contains("\"sourceSectionIds\": []");
+        assertThat(userPrompt.getValue()).doesNotContain("\"sourceSectionIds\": [1]");
         assertThat(quiz.quizType()).isEqualTo("MULTIPLE_CHOICE");
         assertThat(quiz.questionText()).contains("RAG");
         assertThat(quiz.choices()).contains("검색 증강 생성");

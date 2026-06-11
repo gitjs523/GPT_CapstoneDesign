@@ -6,13 +6,14 @@ import jakarta.validation.constraints.NotBlank;
 import org.example.snow.ai.application.QuizGenerationCommand;
 
 public record QuizGenerationRequest(
+        @NotBlank(message = "출제 분야 또는 범위는 필수입니다.")
         String scopeText,
 
         @NotBlank(message = "문제 유형은 필수입니다.")
         String quizType,
 
         @Min(value = 1, message = "문제 개수는 1개 이상이어야 합니다.")
-        @Max(value = 20, message = "문제 개수는 20개 이하이어야 합니다.")
+        @Max(value = 10, message = "문제 개수는 10개 이하이어야 합니다.")
         Integer quizCount
 ) {
 
