@@ -36,6 +36,8 @@ ollama:
     read-timeout-seconds: ${OLLAMA_EMBEDDING_READ_TIMEOUT:30}
   ocr:
     enabled: false
+  vision:
+    enabled: false
 
 cloud:
   aws:
