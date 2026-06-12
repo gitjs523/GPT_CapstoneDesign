@@ -37,22 +37,42 @@ public class PowerPointTextExtractor implements TextExtractor {
 
     static final String PPT_CONTENT_TYPE = "application/vnd.ms-powerpoint";
     static final String PPTX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    private static final String IMAGE_TEXT_HEADING = "[이미지 내 텍스트]";
+    private static final String VISUAL_ANALYSIS_HEADING = "[시각 자료 설명]";
 
     private final OcrTextExtractor ocrTextExtractor;
     private final OllamaOcrProperties ocrProperties;
+    private final VisualContentAnalyzer visualContentAnalyzer;
+    private final OllamaVisionProperties visionProperties;
 
     public PowerPointTextExtractor() {
-        this(image -> "", OllamaOcrProperties.disabled());
+        this(image -> "", OllamaOcrProperties.disabled(), image -> "", OllamaVisionProperties.disabled());
     }
 
     @Autowired
-    public PowerPointTextExtractor(OllamaOcrClient ocrTextExtractor, OllamaOcrProperties ocrProperties) {
-        this((OcrTextExtractor) ocrTextExtractor, ocrProperties);
+    public PowerPointTextExtractor(
+            OllamaOcrClient ocrTextExtractor,
+            OllamaOcrProperties ocrProperties,
+            OllamaVisionClient visualContentAnalyzer,
+            OllamaVisionProperties visionProperties
+    ) {
+        this((OcrTextExtractor) ocrTextExtractor, ocrProperties, visualContentAnalyzer, visionProperties);
     }
 
     PowerPointTextExtractor(OcrTextExtractor ocrTextExtractor, OllamaOcrProperties ocrProperties) {
+        this(ocrTextExtractor, ocrProperties, image -> "", OllamaVisionProperties.disabled());
+    }
+
+    PowerPointTextExtractor(
+            OcrTextExtractor ocrTextExtractor,
+            OllamaOcrProperties ocrProperties,
+            VisualContentAnalyzer visualContentAnalyzer,
+            OllamaVisionProperties visionProperties
+    ) {
         this.ocrTextExtractor = ocrTextExtractor;
         this.ocrProperties = ocrProperties;
+        this.visualContentAnalyzer = visualContentAnalyzer;
+        this.visionProperties = visionProperties;
     }
 
     @Override
@@ -92,8 +112,14 @@ public class PowerPointTextExtractor implements TextExtractor {
 
             for (Slide<S, P> slide : slideShow.getSlides()) {
                 String slideText = extractor.getText(slide);
-                if (shouldAnalyzeSlideImage()) {
-                    slideText = mergeOcrText(slideText, extractSlideImageText(slideShow, slide, slideNumber));
+                BufferedImage slideImage = null;
+                if (shouldExtractSlideImageText()) {
+                    slideImage = renderSlideIfNecessary(slideImage, slideShow, slide);
+                    slideText = mergeBlock(slideText, IMAGE_TEXT_HEADING, extractSlideImageText(slideImage, slideNumber));
+                }
+                if (shouldAnalyzeSlideVisual()) {
+                    slideImage = renderSlideIfNecessary(slideImage, slideShow, slide);
+                    slideText = mergeBlock(slideText, VISUAL_ANALYSIS_HEADING, analyzeSlideVisual(slideImage, slideNumber));
                 }
                 sourceUnits.add(ExtractorSupport.slideSourceUnit(
                         slideNumber,
@@ -112,17 +138,19 @@ public class PowerPointTextExtractor implements TextExtractor {
         }
     }
 
-    private boolean shouldAnalyzeSlideImage() {
+    private boolean shouldExtractSlideImageText() {
         return ocrProperties.enabled() && ocrProperties.powerpointEnabled();
     }
 
-    private <S extends Shape<S, P>, P extends TextParagraph<S, P, ? extends TextRun>> String extractSlideImageText(
-            SlideShow<S, P> slideShow,
-            Slide<S, P> slide,
-            int slideNumber
-    ) {
+    private boolean shouldAnalyzeSlideVisual() {
+        return visionProperties.enabled() && visionProperties.powerpointEnabled();
+    }
+
+    private String extractSlideImageText(BufferedImage image, int slideNumber) {
+        if (image == null) {
+            return "";
+        }
         try {
-            BufferedImage image = renderSlide(slideShow, slide);
             return ocrTextExtractor.extractText(image);
         } catch (RuntimeException exception) {
             log.warn("OCR failed for PowerPoint slide {}. Using slide text extraction result.", slideNumber, exception);
@@ -130,12 +158,33 @@ public class PowerPointTextExtractor implements TextExtractor {
         }
     }
 
+    private String analyzeSlideVisual(BufferedImage image, int slideNumber) {
+        if (image == null) {
+            return "";
+        }
+        try {
+            return visualContentAnalyzer.analyze(image);
+        } catch (RuntimeException exception) {
+            log.warn("Visual analysis failed for PowerPoint slide {}. Using slide text extraction result.",
+                    slideNumber, exception);
+            return "";
+        }
+    }
+
+    private <S extends Shape<S, P>, P extends TextParagraph<S, P, ? extends TextRun>> BufferedImage renderSlideIfNecessary(
+            BufferedImage currentImage,
+            SlideShow<S, P> slideShow,
+            Slide<S, P> slide
+    ) {
+        return currentImage != null ? currentImage : renderSlide(slideShow, slide);
+    }
+
     private <S extends Shape<S, P>, P extends TextParagraph<S, P, ? extends TextRun>> BufferedImage renderSlide(
             SlideShow<S, P> slideShow,
             Slide<S, P> slide
     ) {
         Dimension pageSize = slideShow.getPageSize();
-        double scale = Math.max(72, ocrProperties.renderDpi()) / 72.0;
+        double scale = Math.max(72, Math.max(ocrProperties.renderDpi(), visionProperties.renderDpi())) / 72.0;
         int width = Math.max(1, (int) Math.ceil(pageSize.getWidth() * scale));
         int height = Math.max(1, (int) Math.ceil(pageSize.getHeight() * scale));
 
@@ -154,23 +203,18 @@ public class PowerPointTextExtractor implements TextExtractor {
         return image;
     }
 
-    private String mergeOcrText(String slideText, String ocrText) {
-        if (!StringUtils.hasText(ocrText)) {
-            return slideText;
+    private String mergeBlock(String baseText, String heading, String blockText) {
+        if (!StringUtils.hasText(blockText)) {
+            return baseText;
         }
-        if (!StringUtils.hasText(slideText)) {
-            return ocrText.trim();
+        String trimmedBlock = blockText.trim();
+        if (compact(baseText).contains(compact(trimmedBlock))) {
+            return baseText;
         }
-
-        String slideCompact = compact(slideText);
-        String ocrCompact = compact(ocrText);
-        if (slideCompact.contains(ocrCompact)) {
-            return slideText;
+        if (!StringUtils.hasText(baseText)) {
+            return heading + "\n" + trimmedBlock;
         }
-        if (ocrCompact.contains(slideCompact)) {
-            return ocrText.trim();
-        }
-        return slideText.trim() + "\n\n" + ocrText.trim();
+        return baseText.trim() + "\n\n" + heading + "\n" + trimmedBlock;
     }
 
     private String compact(String text) {

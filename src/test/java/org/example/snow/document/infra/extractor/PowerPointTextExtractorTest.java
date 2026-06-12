@@ -68,6 +68,43 @@ class PowerPointTextExtractorTest {
         assertThat(extractedDocument.sourceUnits().get(0).text()).contains("Image-only keyword");
     }
 
+    @Test
+    void appendsVisualAnalysisWhenPowerPointVisionIsEnabled() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        PowerPointTextExtractor visionExtractor = new PowerPointTextExtractor(
+                image -> "",
+                OllamaOcrProperties.disabled(),
+                image -> {
+                    calls.incrementAndGet();
+                    return "이 슬라이드는 RAG 파이프라인에서 질문, 검색기, 문서, LLM, 답변의 관계를 설명한다.";
+                },
+                new OllamaVisionProperties(
+                        true,
+                        "qwen3-vl:4b",
+                        "http://localhost:11434",
+                        5,
+                        180,
+                        72,
+                        "always",
+                        false,
+                        true,
+                        "Analyze:"
+                )
+        );
+        UploadedDocument file = new UploadedDocument(
+                "lecture.pptx",
+                PowerPointTextExtractor.PPTX_CONTENT_TYPE,
+                createPptx("RAG overview")
+        );
+
+        ExtractedDocument extractedDocument = visionExtractor.extract(file);
+
+        assertThat(calls).hasValue(1);
+        assertThat(extractedDocument.sourceUnits().get(0).text())
+                .contains("[시각 자료 설명]")
+                .contains("RAG 파이프라인");
+    }
+
     private byte[] createPptx(String text) throws IOException {
         try (XMLSlideShow slideShow = new XMLSlideShow(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             slideShow.createSlide().createTextBox().setText(text);

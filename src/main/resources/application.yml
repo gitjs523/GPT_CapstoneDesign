@@ -47,7 +47,9 @@ ollama:
     model: ${OLLAMA_EMBEDDING_MODEL:qwen3-embedding:0.6b}
     batch-size: ${OLLAMA_EMBEDDING_BATCH_SIZE:20}
     connect-timeout-seconds: ${OLLAMA_EMBEDDING_CONNECT_TIMEOUT:5}
-    read-timeout-seconds: ${OLLAMA_EMBEDDING_READ_TIMEOUT:30}
+    read-timeout-seconds: ${OLLAMA_EMBEDDING_READ_TIMEOUT:120}
+    max-attempts: ${OLLAMA_EMBEDDING_MAX_ATTEMPTS:3}
+    retry-backoff-ms: ${OLLAMA_EMBEDDING_RETRY_BACKOFF_MS:1000}
   ocr:
     enabled: ${OLLAMA_OCR_ENABLED:true}
     url: ${OLLAMA_OCR_URL:http://localhost:11434}
@@ -56,8 +58,19 @@ ollama:
     read-timeout-seconds: ${OLLAMA_OCR_READ_TIMEOUT:180}
     min-text-chars: ${OLLAMA_OCR_MIN_TEXT_CHARS:30}
     render-dpi: ${OLLAMA_OCR_RENDER_DPI:180}
-    powerpoint-enabled: ${OLLAMA_OCR_POWERPOINT_ENABLED:true}
+    powerpoint-enabled: ${OLLAMA_OCR_POWERPOINT_ENABLED:false}
     prompt: "${OLLAMA_OCR_PROMPT:Text Recognition: Extract only visible text from this document image. Preserve line breaks. Do not explain, summarize, or infer missing text.}"
+  vision:
+    enabled: ${OLLAMA_VISION_ENABLED:true}
+    url: ${OLLAMA_VISION_URL:${OLLAMA_CHAT_URL:http://localhost:11434}}
+    model: ${OLLAMA_VISION_MODEL:qwen3-vl:4b}
+    connect-timeout-seconds: ${OLLAMA_VISION_CONNECT_TIMEOUT:5}
+    read-timeout-seconds: ${OLLAMA_VISION_READ_TIMEOUT:180}
+    render-dpi: ${OLLAMA_VISION_RENDER_DPI:180}
+    mode: ${OLLAMA_VISION_MODE:always}
+    pdf-enabled: ${OLLAMA_VISION_PDF_ENABLED:true}
+    powerpoint-enabled: ${OLLAMA_VISION_POWERPOINT_ENABLED:true}
+    prompt: "${OLLAMA_VISION_PROMPT:이 이미지는 강의자료의 한 페이지 또는 슬라이드입니다. 이미지 안의 텍스트, 표, 도식, 화살표 관계를 바탕으로 퀴즈 생성에 도움이 되는 핵심 개념과 관계를 한국어 학습 문맥으로 설명하세요. 보이지 않는 내용은 추측하지 말고, 단순 OCR 원문 나열이 아니라 학습자가 이해할 수 있는 설명으로 정리하세요. 시각적으로 의미 있는 내용이 없으면 빈 문자열만 반환하세요.}"
 
 auth:
   jwt:

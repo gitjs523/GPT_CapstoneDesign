@@ -33,6 +33,12 @@ public class EmbeddingClient {
     @Value("${ollama.embedding.read-timeout-seconds}")
     private int readTimeoutSeconds;
 
+    @Value("${ollama.embedding.max-attempts:3}")
+    private int maxAttempts;
+
+    @Value("${ollama.embedding.retry-backoff-ms:1000}")
+    private long retryBackoffMs;
+
     private volatile RestTemplate restTemplate;
 
     private RestTemplate getRestTemplate() {
@@ -64,9 +70,37 @@ public class EmbeddingClient {
         return callEmbedApi(texts);
     }
 
+    /**
+     * 임베딩 배치 1건을 호출한다. 일시적 네트워크 실패(timeout 등 {@link RestClientException})는
+     * maxAttempts까지 backoff 후 재시도한다 — EC2→ngrok 경로에서 배치 1건이 read-timeout을
+     * 스파이크해도 문서 전체가 FAILED되지 않도록 한다. 응답 포맷 오류(키 누락 등)는 결정적
+     * 실패이므로 재시도하지 않고 즉시 전파한다.
+     */
     private List<float[]> callEmbedApi(List<String> texts) {
+        int attempts = Math.max(1, maxAttempts);
+        RestClientException lastError = null;
+        for (int attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                return requestEmbeddings(texts);
+            } catch (RestClientException e) {
+                lastError = e;
+                log.warn("임베딩 모델 HTTP 호출 실패 (시도 {}/{}) | url={} model={} cause={}",
+                        attempt, attempts, embeddingUrl, embeddingModel, e.getMessage());
+                if (attempt < attempts) {
+                    sleepBeforeRetry(attempt);
+                }
+            }
+        }
+        log.error("임베딩 모델 HTTP 호출 최종 실패 (재시도 {}회 소진) | url={} model={}",
+                attempts, embeddingUrl, embeddingModel, lastError);
+        throw new BusinessException(ErrorCode.EMBEDDING_MODEL_CALL_FAILED, lastError);
+    }
+
+    private List<float[]> requestEmbeddings(List<String> texts) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        // ngrok 무료 터널의 브라우저 경고 인터스티셜 회피 (OllamaVisionClient와 동일)
+        headers.set("ngrok-skip-browser-warning", "1");
 
         Map<String, Object> body = Map.of(
                 "model", embeddingModel,
@@ -75,13 +109,8 @@ public class EmbeddingClient {
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-        ResponseEntity<Map> response;
-        try {
-            response = getRestTemplate().postForEntity(embeddingUrl + "/api/embed", request, Map.class);
-        } catch (RestClientException e) {
-            log.error("임베딩 모델 HTTP 호출 실패 | url={} model={} cause={}", embeddingUrl, embeddingModel, e.getMessage(), e);
-            throw new BusinessException(ErrorCode.EMBEDDING_MODEL_CALL_FAILED);
-        }
+        ResponseEntity<Map> response =
+                getRestTemplate().postForEntity(embeddingUrl + "/api/embed", request, Map.class);
 
         Map<?, ?> responseBody = response.getBody();
         if (responseBody == null) {
@@ -107,6 +136,16 @@ public class EmbeddingClient {
             result.add(toFloatArray(embedding));
         }
         return result;
+    }
+
+    private void sleepBeforeRetry(int attempt) {
+        long backoffMs = retryBackoffMs * attempt;
+        try {
+            Thread.sleep(backoffMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(ErrorCode.EMBEDDING_MODEL_CALL_FAILED, e);
+        }
     }
 
     private float[] toFloatArray(List<Double> values) {
