@@ -2,7 +2,13 @@ package org.example.snow.document.infra.extractor;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.graphics.PDXObject;
+import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -87,7 +93,7 @@ public class PdfTextExtractor implements TextExtractor {
                     pageImage = renderPageIfNecessary(renderer, pageImage, pageNumber);
                     pageText = extractWithOcr(pageImage, pageNumber, pageText);
                 }
-                if (needsVisualAnalysis(pageText)) {
+                if (needsVisualAnalysis(document.getPage(pageNumber - 1))) {
                     pageImage = renderPageIfNecessary(renderer, pageImage, pageNumber);
                     pageText = mergeVisualAnalysis(pageText, analyzeVisualContent(pageImage, pageNumber));
                 }
@@ -112,12 +118,46 @@ public class PdfTextExtractor implements TextExtractor {
         return compactLength(text) < Math.max(0, ocrProperties.minTextChars());
     }
 
-    private boolean needsVisualAnalysis(String text) {
+    private boolean needsVisualAnalysis(PDPage page) {
         if (!visionProperties.enabled() || !visionProperties.pdfEnabled()) {
             return false;
         }
-        return visionProperties.alwaysAnalyze()
-                || (visionProperties.fallbackOnly() && compactLength(text) < Math.max(0, ocrProperties.minTextChars()));
+        if (visionProperties.alwaysAnalyze()) {
+            return true;
+        }
+        return visionProperties.imageOnly() && pageHasImage(page);
+    }
+
+    /**
+     * 페이지에 래스터 이미지(XObject)가 있는지 검사한다. image 모드 전용 트리거로,
+     * 텍스트가 많은 페이지여도 그림이 있으면 비전 분석을 돌리기 위함이다.
+     * form XObject에 중첩된 이미지도 제한 깊이까지 재귀로 확인하며,
+     * 감지에 실패하면 이미지 누락을 막기 위해 보수적으로 true를 반환한다.
+     */
+    private boolean pageHasImage(PDPage page) {
+        try {
+            return resourcesContainImage(page.getResources(), 0);
+        } catch (IOException exception) {
+            log.warn("PDF page image detection failed; analyzing visually to avoid missing content.", exception);
+            return true;
+        }
+    }
+
+    private boolean resourcesContainImage(PDResources resources, int depth) throws IOException {
+        if (resources == null || depth > 3) {
+            return false;
+        }
+        for (COSName name : resources.getXObjectNames()) {
+            PDXObject xobject = resources.getXObject(name);
+            if (xobject instanceof PDImageXObject) {
+                return true;
+            }
+            if (xobject instanceof PDFormXObject form
+                    && resourcesContainImage(form.getResources(), depth + 1)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean needsRenderer() {

@@ -3,6 +3,7 @@ package org.example.snow.document.infra.extractor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.hslf.usermodel.HSLFSlideShow;
 import org.apache.poi.sl.extractor.SlideShowExtractor;
+import org.apache.poi.sl.usermodel.PictureShape;
 import org.apache.poi.sl.usermodel.Shape;
 import org.apache.poi.sl.usermodel.Slide;
 import org.apache.poi.sl.usermodel.SlideShow;
@@ -117,7 +118,7 @@ public class PowerPointTextExtractor implements TextExtractor {
                     slideImage = renderSlideIfNecessary(slideImage, slideShow, slide);
                     slideText = mergeBlock(slideText, IMAGE_TEXT_HEADING, extractSlideImageText(slideImage, slideNumber));
                 }
-                if (shouldAnalyzeSlideVisual()) {
+                if (shouldAnalyzeSlideVisual(slide)) {
                     slideImage = renderSlideIfNecessary(slideImage, slideShow, slide);
                     slideText = mergeBlock(slideText, VISUAL_ANALYSIS_HEADING, analyzeSlideVisual(slideImage, slideNumber));
                 }
@@ -142,8 +143,28 @@ public class PowerPointTextExtractor implements TextExtractor {
         return ocrProperties.enabled() && ocrProperties.powerpointEnabled();
     }
 
-    private boolean shouldAnalyzeSlideVisual() {
-        return visionProperties.enabled() && visionProperties.powerpointEnabled();
+    private <S extends Shape<S, P>, P extends TextParagraph<S, P, ? extends TextRun>> boolean shouldAnalyzeSlideVisual(
+            Slide<S, P> slide
+    ) {
+        if (!visionProperties.enabled() || !visionProperties.powerpointEnabled()) {
+            return false;
+        }
+        if (visionProperties.alwaysAnalyze()) {
+            return true;
+        }
+        return visionProperties.imageOnly() && slideHasImage(slide);
+    }
+
+    /** 슬라이드에 그림(PictureShape)이 있는지 검사한다. image 모드 전용 트리거. */
+    private <S extends Shape<S, P>, P extends TextParagraph<S, P, ? extends TextRun>> boolean slideHasImage(
+            Slide<S, P> slide
+    ) {
+        for (Shape<S, P> shape : slide.getShapes()) {
+            if (shape instanceof PictureShape) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String extractSlideImageText(BufferedImage image, int slideNumber) {

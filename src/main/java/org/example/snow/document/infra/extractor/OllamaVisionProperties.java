@@ -18,7 +18,7 @@ public record OllamaVisionProperties(
 ) {
 
     private static final String MODE_ALWAYS = "always";
-    private static final String MODE_FALLBACK = "fallback";
+    private static final String MODE_IMAGE = "image";
 
     public OllamaVisionProperties(
             @Value("${ollama.vision.enabled:true}") boolean enabled,
@@ -27,7 +27,7 @@ public record OllamaVisionProperties(
             @Value("${ollama.vision.connect-timeout-seconds:5}") int connectTimeoutSeconds,
             @Value("${ollama.vision.read-timeout-seconds:180}") int readTimeoutSeconds,
             @Value("${ollama.vision.render-dpi:180}") int renderDpi,
-            @Value("${ollama.vision.mode:always}") String mode,
+            @Value("${ollama.vision.mode:image}") String mode,
             @Value("${ollama.vision.pdf-enabled:true}") boolean pdfEnabled,
             @Value("${ollama.vision.powerpoint-enabled:true}") boolean powerpointEnabled,
             @Value("${ollama.vision.prompt:Analyze this lecture material image for study.}") String prompt
@@ -38,7 +38,8 @@ public record OllamaVisionProperties(
         this.connectTimeoutSeconds = connectTimeoutSeconds;
         this.readTimeoutSeconds = readTimeoutSeconds;
         this.renderDpi = renderDpi;
-        this.mode = mode == null ? MODE_ALWAYS : mode.trim().toLowerCase();
+        // always 외의 모든 값(미설정·image·오타 포함)은 기본 모드 image로 정규화한다.
+        this.mode = (mode != null && MODE_ALWAYS.equalsIgnoreCase(mode.trim())) ? MODE_ALWAYS : MODE_IMAGE;
         this.pdfEnabled = pdfEnabled;
         this.powerpointEnabled = powerpointEnabled;
         this.prompt = prompt;
@@ -48,8 +49,9 @@ public record OllamaVisionProperties(
         return MODE_ALWAYS.equals(mode);
     }
 
-    boolean fallbackOnly() {
-        return MODE_FALLBACK.equals(mode);
+    /** 페이지/슬라이드에 이미지가 있을 때만 비전 분석 (텍스트 양과 무관). 기본 모드. */
+    boolean imageOnly() {
+        return MODE_IMAGE.equals(mode);
     }
 
     static OllamaVisionProperties disabled() {

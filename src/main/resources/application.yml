@@ -67,7 +67,8 @@ ollama:
     connect-timeout-seconds: ${OLLAMA_VISION_CONNECT_TIMEOUT:5}
     read-timeout-seconds: ${OLLAMA_VISION_READ_TIMEOUT:180}
     render-dpi: ${OLLAMA_VISION_RENDER_DPI:180}
-    mode: ${OLLAMA_VISION_MODE:always}
+    # 비전 트리거 모드: image(기본, 이미지 있는 페이지만) | always(모든 페이지)
+    mode: ${OLLAMA_VISION_MODE:image}
     pdf-enabled: ${OLLAMA_VISION_PDF_ENABLED:true}
     powerpoint-enabled: ${OLLAMA_VISION_POWERPOINT_ENABLED:true}
     prompt: "${OLLAMA_VISION_PROMPT:이 이미지는 강의자료의 한 페이지 또는 슬라이드입니다. 이미지 안의 텍스트, 표, 도식, 화살표 관계를 바탕으로 퀴즈 생성에 도움이 되는 핵심 개념과 관계를 한국어 학습 문맥으로 설명하세요. 보이지 않는 내용은 추측하지 말고, 단순 OCR 원문 나열이 아니라 학습자가 이해할 수 있는 설명으로 정리하세요. 시각적으로 의미 있는 내용이 없으면 빈 문자열만 반환하세요.}"
