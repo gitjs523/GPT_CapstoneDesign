@@ -23,11 +23,15 @@ spring:
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # 단일·저트래픽 인스턴스 — 커넥션 3개면 충분 (기본 10 → 메모리/RDS 슬롯 절약)
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
 
   servlet:
     multipart:
-      max-file-size: 50MB
-      max-request-size: 50MB
+      # 업로드 파일은 컨트롤러에서 getBytes()로 통째로 힙에 적재됨 → 상한을 보수적으로
+      max-file-size: ${MAX_UPLOAD_SIZE:20MB}
+      max-request-size: ${MAX_UPLOAD_SIZE:20MB}
 
   jpa:
     open-in-view: false
@@ -116,3 +120,8 @@ server:
   port: ${SERVER_PORT:8080}
   address: 0.0.0.0
   forward-headers-strategy: framework
+  tomcat:
+    threads:
+      # 저트래픽 — 기본 200스레드는 과다(스택 메모리). 25면 충분
+      max: ${TOMCAT_MAX_THREADS:25}
+      min-spare: 5
