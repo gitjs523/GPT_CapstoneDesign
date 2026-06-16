@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SNOW explanation workspace.">
+  <title>SNOW Explanation</title>
+  <link rel="stylesheet" href="./src/styles/main.css">
+</head>
+<body>
+  <main class="explanation-shell">
+    <header class="explanation-header">
+      <a class="top-link" href="./index.html">Workspace</a>
+      <p class="eyebrow">
+        <span class="brand-accent brand-s">S</span>mart
+        <span class="brand-accent brand-n">N</span>ote
+        <span class="brand-accent brand-o">O</span>rganizer for
+        <span class="brand-accent brand-w">W</span>eb
+      </p>
+      <h1>해설</h1>
+    </header>
+
+    <section class="explanation-board">
+      <article class="panel explanation-panel">
+        <div class="panel-heading">
+          <p class="panel-kicker">Question</p>
+          <h2>문제</h2>
+        </div>
+        <div class="explanation-placeholder">선택한 문제 내용이 이 영역에 표시됩니다.</div>
+      </article>
+
+      <article class="panel explanation-panel">
+        <div class="panel-heading">
+          <p class="panel-kicker">Answer</p>
+          <h2>정답 및 해설</h2>
+        </div>
+        <div class="explanation-placeholder">정답, 풀이 과정, 참고 문서 근거를 배치할 영역입니다.</div>
+      </article>
+
+      <article class="panel explanation-panel">
+        <div class="panel-heading">
+          <p class="panel-kicker">References</p>
+          <h2>참고 섹션</h2>
+        </div>
+        <div class="explanation-placeholder">문서에서 인용한 섹션과 페이지 정보를 보여줄 영역입니다.</div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

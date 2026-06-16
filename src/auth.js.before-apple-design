@@ -24,14 +24,11 @@ const signupFeedback = document.querySelector("#signup-feedback");
 const signupResult = document.querySelector("#signup-result");
 const signupSubmit = document.querySelector("#signup-submit");
 
-const API_BASE_URL = "";
-const USER_EMAIL_STORAGE_KEY = "snow.userEmail";
-
-// TODO(back-end): 비밀번호 재설정에서는 서버에 이메일 존재 여부를 확인해야 하므로 이 목업 목록을 제거하세요.
-const mockRegisteredEmails = ["snow@example.com", "student@example.com", "team@snow.ai"];
-const USER_NAME_STORAGE_KEY = "snow.userName";
-
-localStorage.removeItem("snow.accessToken");
+const mockRegisteredEmails = [
+  "snow@example.com",
+  "student@example.com",
+  "team@snow.ai"
+];
 
 function setActiveAuthPanel(targetId) {
   authTabs.forEach((tab) => {
@@ -91,16 +88,18 @@ function updateLoginState() {
 
   const email = loginEmail.value.trim();
   const password = loginPassword.value;
+  const hasEmail = email.length > 0;
+  const hasPassword = password.length > 0;
   const validEmail = isValidEmail(email);
-  const isReady = email.length > 0 && password.length > 0 && validEmail;
+  const isReady = hasEmail && hasPassword && validEmail;
 
-  if (!email && !password) {
+  if (!hasEmail && !hasPassword) {
     loginFeedback.textContent = "이메일과 비밀번호를 입력하세요.";
-  } else if (!email) {
+  } else if (!hasEmail) {
     loginFeedback.textContent = "이메일을 입력하세요.";
   } else if (!validEmail) {
     loginFeedback.textContent = "올바른 이메일 형식을 입력하세요.";
-  } else if (!password) {
+  } else if (!hasPassword) {
     loginFeedback.textContent = "비밀번호를 입력하세요.";
   } else {
     loginFeedback.textContent = "로그인 준비가 완료되었습니다.";
@@ -112,18 +111,30 @@ function updateLoginState() {
 }
 
 function updateForgotState() {
-  if (!forgotEmail || !forgotPassword || !forgotPasswordConfirm || !forgotFeedback || !forgotSubmit) {
+  if (
+    !forgotEmail ||
+    !forgotPassword ||
+    !forgotPasswordConfirm ||
+    !forgotFeedback ||
+    !forgotSubmit
+  ) {
     return;
   }
 
   const email = forgotEmail.value.trim();
   const validEmail = isValidEmail(email);
-  // TODO(back-end): 실제 서비스에서는 클라이언트에 가입 이메일 목록을 두지 말고 서버 검증 응답을 사용하세요.
   const existsEmail = mockRegisteredEmails.includes(email.toLowerCase());
   const hasLongEnoughPassword = forgotPassword.value.length >= 8;
   const includesSpecialCharacter = hasSpecialCharacter(forgotPassword.value);
-  const passwordsMatch = forgotPassword.value.length > 0 && forgotPassword.value === forgotPasswordConfirm.value;
-  const isReady = validEmail && existsEmail && hasLongEnoughPassword && includesSpecialCharacter && passwordsMatch;
+  const passwordsMatch =
+    forgotPassword.value.length > 0 &&
+    forgotPassword.value === forgotPasswordConfirm.value;
+  const isReady =
+    validEmail &&
+    existsEmail &&
+    hasLongEnoughPassword &&
+    includesSpecialCharacter &&
+    passwordsMatch;
 
   if (!email) {
     forgotFeedback.textContent = "가입한 이메일과 새 비밀번호를 입력하세요.";
@@ -149,24 +160,35 @@ function updateForgotState() {
 }
 
 function updateSignupState() {
-  if (!signupName || !signupEmail || !signupPassword || !signupPasswordConfirm || !signupAgree || !signupFeedback || !signupSubmit) {
+  if (
+    !signupName ||
+    !signupEmail ||
+    !signupPassword ||
+    !signupPasswordConfirm ||
+    !signupAgree ||
+    !signupFeedback ||
+    !signupSubmit
+  ) {
     return;
   }
 
   const hasName = signupName.value.trim().length > 0;
   const hasEmail = signupEmail.value.trim().length > 0;
-  const validEmail = isValidEmail(signupEmail.value.trim());
   const hasLongEnoughPassword = signupPassword.value.length >= 8;
   const includesSpecialCharacter = hasSpecialCharacter(signupPassword.value);
-  const passwordsMatch = signupPassword.value.length > 0 && signupPassword.value === signupPasswordConfirm.value;
+  const passwordsMatch =
+    signupPassword.value.length > 0 &&
+    signupPassword.value === signupPasswordConfirm.value;
   const agreed = signupAgree.checked;
-  const isReady = hasName && hasEmail && validEmail && hasLongEnoughPassword && includesSpecialCharacter && passwordsMatch && agreed;
+  const isReady =
+    hasName &&
+    hasEmail &&
+    hasLongEnoughPassword &&
+    includesSpecialCharacter &&
+    passwordsMatch &&
+    agreed;
 
-  if (!hasName || !hasEmail) {
-    signupFeedback.textContent = "이름과 이메일을 모두 입력하세요.";
-  } else if (!validEmail) {
-    signupFeedback.textContent = "올바른 이메일 형식을 입력하세요.";
-  } else if (!signupPassword.value && !signupPasswordConfirm.value) {
+  if (!signupPassword.value && !signupPasswordConfirm.value) {
     signupFeedback.textContent = "비밀번호는 8자 이상이며 특수문자를 포함해야 합니다.";
   } else if (!hasLongEnoughPassword) {
     signupFeedback.textContent = "비밀번호는 8자 이상이어야 합니다.";
@@ -176,6 +198,8 @@ function updateSignupState() {
     signupFeedback.textContent = "비밀번호가 일치하지 않습니다.";
   } else if (!agreed) {
     signupFeedback.textContent = "회원가입을 진행하려면 약관 동의가 필요합니다.";
+  } else if (!hasName || !hasEmail) {
+    signupFeedback.textContent = "이름과 이메일을 모두 입력하세요.";
   } else {
     signupFeedback.textContent = "회원가입 준비가 완료되었습니다.";
   }
@@ -194,172 +218,123 @@ function resetSignupForm() {
   updateSignupState();
 }
 
-function setSubmitting(button, isSubmitting, submittingText, defaultText) {
-  if (!button) {
-    return;
-  }
-
-  button.disabled = isSubmitting;
-  button.textContent = isSubmitting ? submittingText : defaultText;
-}
-
-async function requestAuth(path, payload) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
-
-  let data = null;
-  try {
-    data = await response.json();
-  } catch (error) {
-    data = null;
-  }
-
-  if (!response.ok) {
-    const message = data?.message || data?.error || "요청을 처리하지 못했습니다.";
-    const error = new Error(message);
-    error.status = response.status;
-    throw error;
-  }
-
-  return data;
-}
-
-function saveAuthSession(data, fallbackName) {
-  if (data?.email) {
-    localStorage.setItem(USER_EMAIL_STORAGE_KEY, data.email);
-  }
-
-  const displayName = data?.name || data?.userName || data?.username || fallbackName || data?.email || "";
-  if (displayName) {
-    localStorage.setItem(USER_NAME_STORAGE_KEY, displayName);
-  }
-}
-
 authTabs.forEach((tab) => {
-  tab.addEventListener("click", () => setActiveAuthPanel(tab.dataset.authTarget));
+  tab.addEventListener("click", () => {
+    setActiveAuthPanel(tab.dataset.authTarget);
+  });
 });
 
 [forgotPasswordTrigger, loginForgotPassword].forEach((trigger) => {
-  trigger?.addEventListener("click", () => {
+  if (!trigger) {
+    return;
+  }
+
+  trigger.addEventListener("click", () => {
     setActiveAuthPanel("forgot-panel");
     updateForgotState();
   });
 });
 
-forgotBack?.addEventListener("click", () => {
-  setActiveAuthPanel("login-panel");
-  updateLoginState();
+if (forgotBack) {
+  forgotBack.addEventListener("click", () => {
+    setActiveAuthPanel("login-panel");
+    updateLoginState();
+  });
+}
+
+[loginEmail, loginPassword].forEach((field) => {
+  if (!field) {
+    return;
+  }
+
+  field.addEventListener("input", updateLoginState);
 });
 
-[loginEmail, loginPassword].forEach((field) => field?.addEventListener("input", updateLoginState));
-
 [signupName, signupEmail, signupPassword, signupPasswordConfirm, signupAgree].forEach((field) => {
-  const eventName = field?.type === "checkbox" ? "change" : "input";
-  field?.addEventListener(eventName, () => {
+  if (!field) {
+    return;
+  }
+
+  const eventName = field.type === "checkbox" ? "change" : "input";
+  field.addEventListener(eventName, () => {
     clearSignupResult();
     updateSignupState();
   });
 });
 
 [forgotEmail, forgotPassword, forgotPasswordConfirm].forEach((field) => {
-  field?.addEventListener("input", updateForgotState);
+  if (!field) {
+    return;
+  }
+
+  field.addEventListener("input", updateForgotState);
 });
 
-forgotForm?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  updateForgotState();
+if (signupForm) {
+  signupForm.addEventListener("submit", (event) => {
+    event.preventDefault();
 
-  if (forgotSubmit?.disabled) {
-    return;
-  }
+    clearSignupResult();
+    updateSignupState();
 
-  // BACKEND_AUTH_HOOK: 비밀번호 재설정 연동 위치입니다.
-  // BACKEND_AUTH_HOOK: POST /api/auth/password/reset에 email/newPassword를 전송하고 성공/실패 응답을 반영하세요.
-  forgotFeedback.textContent = "비밀번호가 재설정되었습니다. 새 비밀번호로 로그인하세요.";
-  forgotFeedback.classList.add("is-valid");
-  forgotFeedback.classList.remove("is-error");
-});
-
-signupForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  clearSignupResult();
-  updateSignupState();
-
-  if (signupSubmit?.disabled) {
-    showSignupResult("입력 조건을 확인하고 다시 시도하세요.", "error");
-    setActiveAuthPanel("signup-panel");
-    return;
-  }
-
-  const submittedEmail = signupEmail?.value.trim() ?? "";
-  const submittedName = signupName?.value.trim() ?? "";
-
-  setSubmitting(signupSubmit, true, "가입 중...", "회원가입");
-
-  try {
-    const data = await requestAuth("/api/auth/signup", {
-      name: submittedName,
-      email: submittedEmail,
-      password: signupPassword?.value ?? ""
-    });
-
-    saveAuthSession(data, submittedName || submittedEmail);
-    showSignupResult("회원가입이 완료되었습니다. 로그인 상태로 이동합니다.", "success");
-    window.location.href = "./index.html";
-  } catch (error) {
-    showSignupResult(error.message || "회원가입에 실패했습니다. 입력 정보를 확인하고 다시 시도하세요.", "error");
-    setActiveAuthPanel("signup-panel");
-  } finally {
-    setSubmitting(signupSubmit, false, "가입 중...", "회원가입");
-  }
-}, { capture: true });
-
-loginForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  updateLoginState();
-
-  if (loginSubmit?.disabled) {
-    return;
-  }
-
-  const email = loginEmail?.value.trim() ?? "";
-  const defaultLoginButtonText = loginSubmit?.textContent || "로그인";
-  setSubmitting(loginSubmit, true, "로그인 중...", "로그인");
-
-  try {
-    const data = await requestAuth("/api/auth/login", {
-      email,
-      password: loginPassword?.value ?? ""
-    });
-
-    saveAuthSession(data, email);
-    window.location.href = "./index.html";
-  } catch (error) {
-    if (loginFeedback) {
-      loginFeedback.textContent = error.status === 401
-        ? "비밀번호를 다시 입력하세요."
-        : error.message || "로그인에 실패했습니다. 이메일과 비밀번호를 확인하세요.";
-      loginFeedback.classList.add("is-error");
-      loginFeedback.classList.remove("is-valid");
+    if (signupSubmit?.disabled) {
+      showSignupResult("입력 조건을 먼저 충족한 뒤 다시 시도하세요.", "error");
+      setActiveAuthPanel("signup-panel");
+      return;
     }
-  } finally {
-    if (loginSubmit) {
-      loginSubmit.disabled = false;
-      loginSubmit.textContent = defaultLoginButtonText;
+
+    // TODO: 백엔드 연결 시 이 지점에서 회원가입 API를 호출하고,
+    // 응답 결과에 따라 success / error 분기를 서버 응답 기준으로 교체한다.
+    // TODO: 회원가입 API 호출 위치
+    // 예: POST /api/auth/signup 호출 후 서버 응답에 따라 성공/실패 처리를 교체한다.
+    const shouldSucceed = signupEmail?.value.trim().toLowerCase() !== "fail@example.com";
+
+    if (shouldSucceed) {
+      const submittedEmail = signupEmail?.value.trim() ?? "";
+      showSignupResult("회원가입이 완료되었습니다. 로그인 탭에서 로그인하세요.", "success");
+      setActiveAuthPanel("login-panel");
+      if (loginEmail) {
+        loginEmail.value = submittedEmail;
+        updateLoginState();
+      }
+      resetSignupForm();
+      return;
     }
-  }
-}, { capture: true });
+
+    showSignupResult("회원가입에 실패했습니다. 입력 정보를 확인한 뒤 다시 시도하세요.", "error");
+    setActiveAuthPanel("signup-panel");
+  });
+}
+
+if (loginForm) {
+  loginForm.addEventListener("submit", () => {
+    // TODO: 로그인 API 호출 위치
+    // 예: POST /api/auth/login 호출 후 토큰 저장, 성공 시 페이지 이동, 실패 시 오류 메시지를 처리한다.
+    // TODO: 백엔드 연결 시 로그인 API 호출 후 성공 시 페이지 이동,
+    // 실패 시 로그인 패널 유지 및 서버 에러 메시지 표시 로직을 추가한다.
+  });
+}
+
+if (forgotForm) {
+  forgotForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    updateForgotState();
+
+    if (forgotSubmit?.disabled) {
+      return;
+    }
+
+    // TODO: 백엔드 연결 시 비밀번호 재설정 요청 API를 호출하고,
+    // 성공 시 안내 메시지 표시, 실패 시 에러 메시지 표시로 교체한다.
+    // TODO: 비밀번호 재설정 API 호출 위치
+    // 예: POST /api/auth/password/reset 호출 후 성공 안내 또는 실패 오류 메시지를 처리한다.
+    forgotFeedback.textContent = "비밀번호가 재설정되었습니다. 새 비밀번호로 로그인하세요.";
+    forgotFeedback.classList.add("is-valid");
+    forgotFeedback.classList.remove("is-error");
+  });
+}
 
 updateLoginState();
 updateSignupState();
 updateForgotState();
 clearSignupResult();
-

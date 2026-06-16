@@ -1,0 +1,43 @@
+프론트 Swagger 연동은 전체 완료했습니다.
+
+현재 정상 확인:
+- Auth: signup/login/refresh/logout/me
+- Notebook CRUD
+- 문서 업로드/목록/상세/삭제
+- 문서 분석 status COMPLETED 확인
+- document sections 조회 정상
+- 해설 페이지 로그인 상태 표시 정상
+- Quiz job 생성 요청은 프론트에서 정상 전송됨
+- Swagger 잔여 API들도 호출 UI/함수 연결 완료
+
+남은 백엔드 이슈:
+1. Notebook Q&A 실패
+POST /api/notebooks/63/qa
+응답:
+500 AI_001
+message: AI 응답 생성에 실패했습니다.
+
+2. 퀴즈 생성 실패
+POST /api/notebooks/63/quiz-jobs 요청은 성공하고 jobId 생성됨.
+예시:
+jobId: 26
+notebookId: 63
+quizType: 객관식
+difficulty: medium
+quizCount: 5
+modelName: qwen3:4b-q4_K_M
+promptTemplateId: 1
+status: FAILED
+resultCount: 0
+quizzes: []
+
+문서 분석과 sections 조회는 정상이라, 임베딩/문서 분석 이후 LLM 생성 호출 공통부 문제로 보입니다.
+
+확인 부탁:
+- OLLAMA_CHAT_URL / Ollama generate 또는 chat endpoint 설정
+- qwen3:4b-q4_K_M 모델이 실제 호출 가능한지
+- Notebook Q&A와 Quiz generation에서 공통으로 쓰는 AI 응답 생성 로직
+- 모델 응답 timeout 여부
+- 모델 출력 파싱 실패 여부
+- generation_context가 비어 있는지
+- jobId=26 기준 백엔드 로그

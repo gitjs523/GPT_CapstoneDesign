@@ -1,0 +1,168 @@
+SNOW frontend/backend integration handoff - 2026-05-22
+
+1. Current frontend stack
+- Static HTML/CSS/Vanilla JS.
+- Main files:
+  - index.html
+  - login.html
+  - explanation.html
+  - src/auth.js
+  - src/main.js
+  - src/explanation.js
+  - src/styles/main.css
+
+2. Local dev server
+- Because backend refresh token uses HttpOnly cookie with SameSite=Lax, direct cross-site calls from
+  http://localhost:5500 to http://3.37.6.60:8080 do not send the refresh cookie.
+- Added local same-origin proxy:
+  - dev-proxy-server.js
+- Run with:
+  cd /d C:\Users\dlsqu\Desktop\snow\GPT_CapstoneDesign
+  node dev-proxy-server.js
+- Open:
+  http://localhost:5500/login.html
+- Frontend API_BASE_URL is now "" in:
+  - src/auth.js
+  - src/main.js
+  - src/explanation.js
+- Browser requests /api/... on localhost:5500, and dev-proxy-server.js forwards them to:
+  http://3.37.6.60:8080/api/...
+
+3. Auth integration status
+- Backend auth design:
+  - accessToken: JWT, response body, frontend memory only
+  - refreshToken: HttpOnly cookie named snow_refresh
+  - refresh token rotation enabled
+  - /api/auth/refresh requires credentials/cookie, not Authorization Bearer
+- Frontend changes made:
+  - Removed localStorage accessToken usage.
+  - accessToken is stored in memory variable only.
+  - login/signup fetch uses credentials: "include".
+  - refresh uses POST /api/auth/refresh with credentials: "include".
+  - authFetch attaches Authorization: Bearer <memory accessToken> to normal API requests.
+  - 401 triggers refresh and retries the original request.
+  - refreshPromise prevents duplicate simultaneous refresh calls.
+  - JWT exp is decoded and refresh is scheduled 1 minute before expiry.
+  - logout uses credentials: "include".
+- Verified in browser:
+  - login request URL: http://localhost:5500/api/auth/login
+  - refresh request URL: http://localhost:5500/api/auth/refresh
+  - refresh request has Cookie: snow_refresh=...
+  - refresh response has Set-Cookie: snow_refresh=...
+  - refresh response body contains accessToken
+  - 새로고침 후 POST /api/auth/refresh, GET /api/users/me, GET /api/notebooks are normal.
+
+4. APIs already connected
+- Auth:
+  - POST /api/auth/signup
+  - POST /api/auth/login
+  - POST /api/auth/refresh
+  - POST /api/auth/logout
+  - GET /api/users/me
+- Notebooks:
+  - GET /api/notebooks
+  - POST /api/notebooks
+  - GET /api/notebooks/{notebookId}
+  - PATCH /api/notebooks/{notebookId}
+  - DELETE /api/notebooks/{notebookId}
+- Documents:
+  - GET /api/notebooks/{notebookId}/documents
+  - POST /api/notebooks/{notebookId}/documents
+  - GET /api/notebooks/{notebookId}/documents/{documentId}
+  - DELETE /api/notebooks/{notebookId}/documents/{documentId}
+  - GET /api/notebooks/{notebookId}/documents/{documentId}/status
+  - GET /api/notebooks/{notebookId}/documents/{documentId}/sections
+- Quiz generation:
+  - POST /api/notebooks/{notebookId}/quiz-jobs
+  - GET /api/quiz-jobs/{jobId}
+  - GET /api/quiz-jobs/{jobId}/quizzes
+- Notebook Q&A:
+  - GET /api/notebooks/{notebookId}/qa
+  - POST /api/notebooks/{notebookId}/qa
+
+5. UI changes made
+- Left menu order changed to:
+  1. Notebook
+  2. Document upload
+  3. History
+- Uploaded document cards now have:
+  - x delete button
+  - detail button
+- Detail button calls:
+  - GET /api/notebooks/{notebookId}/documents/{documentId}
+  - GET /api/notebooks/{notebookId}/documents/{documentId}/sections
+- explanation.html now loads notebooks/documents from server and includes Notebook Q&A form.
+
+6. Document upload/delete status
+- Document upload request is sent to:
+  POST /api/notebooks/{notebookId}/documents
+- After upload, frontend polls:
+  GET /api/notebooks/{notebookId}/documents/{documentId}/status
+- If status is COMPLETED:
+  - document stays and is marked analysis complete.
+- If status is FAILED:
+  - document now stays in UI and is marked "분석 실패".
+  - Previously it disappeared; this was fixed.
+- Current observed backend issue:
+  - status request returns 200 OK, but body contains:
+    { "analysisStatus": "FAILED", "summaryText": null }
+  - This means HTTP call succeeds but backend document analysis fails.
+  - Needs backend log investigation.
+- Message to backend:
+  문서 업로드는 성공해서 documentId가 생성됩니다.
+  이후 GET /api/notebooks/{notebookId}/documents/{documentId}/status 는 200 OK를 반환하지만,
+  body의 analysisStatus가 FAILED입니다.
+  해당 documentId의 분석 로그 확인이 필요합니다.
+
+7. Document delete status
+- DELETE request:
+  DELETE /api/notebooks/{notebookId}/documents/{documentId}
+- Observed response:
+  - Status Code 204 No Content
+  - This is normal; DevTools Response may show "Failed to load response data" because there is no body.
+- If deleted document appears again after refresh:
+  - Check GET /api/notebooks/{notebookId}/documents response.
+  - If same documentId appears again, backend deletion is not reflected in list query.
+- Temporary local filtering was added then removed to allow real backend delete testing.
+
+8. Pending backend-dependent tests
+- Wait until document analysis returns:
+  { "analysisStatus": "COMPLETED" }
+- Then test quiz generation:
+  1. POST /api/notebooks/{notebookId}/quiz-jobs
+  2. GET /api/quiz-jobs/{jobId}
+  3. GET /api/quiz-jobs/{jobId}/quizzes
+- Expected frontend:
+  - result cards render questionText
+  - answer/explanation/details expand
+
+9. Remaining Swagger items not fully connected
+- Quiz-specific Q&A:
+  - GET /api/quizzes/{quizId}/qa
+  - POST /api/quizzes/{quizId}/qa
+- AI standalone endpoints:
+  - POST /api/ai/summaries
+  - POST /api/ai/section-summaries
+  - POST /api/ai/answers
+  - GET /api/ai/ask
+- Standalone document extraction:
+  - POST /api/documents/extract
+
+10. Commands used for verification
+- node --check dev-proxy-server.js
+- node --check src/auth.js
+- node --check src/main.js
+- node --check src/explanation.js
+
+11. Next recommended steps
+1. Keep using:
+   node dev-proxy-server.js
+   http://localhost:5500/login.html
+2. Retest auth after any backend auth change:
+   - login Set-Cookie
+   - refresh request Cookie
+   - refresh response accessToken
+   - GET /api/users/me
+3. Wait for backend to fix document analysis FAILED.
+4. Once status is COMPLETED, test quiz generation flow.
+5. Then connect quiz-specific Q&A APIs.

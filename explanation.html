@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -17,42 +17,94 @@
     </div>
     <div class="nav-links">
       <a href="./index.html">Workspace</a>
-      <a href="./login.html">Login</a>
+      <a id="login-link" href="./login.html">Login</a>
+      <button type="button" id="logout-button" class="nav-button" hidden>Logout</button>
     </div>
   </nav>
 
-  <main class="explanation-shell">
-    <section class="explanation-board">
-      <article class="panel explanation-panel explanation-references-panel">
-        <div class="panel-heading">
-          <p class="panel-kicker">References</p>
-          <h2>&#52280;&#44256; &#49465;&#49496;</h2>
+    <div class="screen-layout app-surface explanation-layout">
+    <aside class="screen-side screen-side-left">
+      <div class="left-layout">
+        <div class="left-rail">
+          <button type="button" id="left-menu-toggle" class="left-menu-toggle" aria-expanded="false" aria-controls="left-menu-drawer">
+            <span class="sr-only">Menu</span>
+            <strong aria-hidden="true">&#9776;</strong>
+          </button>
         </div>
-        <label class="select-wrap explanation-notebook-picker">
-          <span>Notebook &#49440;&#53469;</span>
-          <select id="explanation-notebook-select"></select>
-        </label>
-        <div id="explanation-references" class="explanation-placeholder">Notebook&#51012; &#49440;&#53469;&#54616;&#47732; &#50629;&#47196;&#46300; &#47928;&#49436;&#50752; &#52280;&#44256; &#51221;&#48372;&#44032; &#54364;&#49884;&#46121;&#45768;&#45796;.</div>
-      </article>
 
-      <article class="panel explanation-panel">
-        <div class="panel-heading">
-          <p class="panel-kicker">Question</p>
-          <h2>&#47928;&#51228;</h2>
-        </div>
-        <div id="explanation-question" class="explanation-placeholder">&#49440;&#53469;&#54620; Notebook&#51032; &#50836;&#52397; &#45236;&#50857;&#51060; &#54364;&#49884;&#46121;&#45768;&#45796;.</div>
-      </article>
+        <div id="left-menu-drawer" class="left-menu-drawer explanation-left-drawer" aria-hidden="true">
+          <div class="left-history-slot">
+            <article class="panel explanation-panel explanation-references-panel">
+              <div class="panel-heading">
+                <h2>참고 섹션</h2>
+              </div>
+              <label class="select-wrap explanation-notebook-picker">
+                <span>Notebook 선택</span>
+                <select id="explanation-notebook-select"></select>
+              </label>
+              <div id="explanation-references" class="explanation-placeholder">Notebook을 선택하면 업로드 문서와 참고 정보가 표시됩니다.</div>
+            </article>
 
-      <article class="panel explanation-panel explanation-panel-featured">
-        <div class="panel-heading">
-          <p class="panel-kicker">Answer</p>
-          <h2>&#51221;&#45813; &#48143; &#54644;&#49444;</h2>
+            <article class="panel explanation-panel explanation-qa-panel">
+              <div class="panel-heading">
+                <h2>Q&A 기록</h2>
+              </div>
+              <div id="notebook-qa-history" class="explanation-placeholder">Notebook Q&A 기록이 표시됩니다.</div>
+
+            </article>
+          </div>
         </div>
-        <div id="explanation-answer" class="explanation-placeholder">&#49373;&#49457; &#44208;&#44284;&#50752; &#54644;&#49444; &#52488;&#50504;&#51060; &#54364;&#49884;&#46121;&#45768;&#45796;.</div>
-      </article>
-    </section>
-  </main>
+      </div>
+    </aside>
+
+    <main class="explanation-shell page-shell">
+      <section class="explanation-board">
+        <article class="panel explanation-panel document-summary-panel">
+          <div class="panel-heading">
+            <h2>문서 요약</h2>
+          </div>
+          <div id="document-summary" class="explanation-placeholder">Notebook을 선택하면 문서 요약이 표시됩니다.</div>
+          <button type="button" class="scroll-expand-button" data-scroll-toggle="document-summary" aria-expanded="false" aria-label="문서 요약 전체 보기" title="전체 보기"></button>
+        </article>
+
+        <article class="panel explanation-panel generated-questions-panel">
+          <div class="panel-heading">
+            <h2>생성된 문제</h2>
+          </div>
+          <div id="explanation-question" class="explanation-placeholder">선택한 Notebook의 생성 문제가 표시됩니다.</div>
+        </article>
+
+        <article class="panel explanation-panel explanation-panel-featured">
+          <div class="panel-heading">
+            <h2>정답 및 해설</h2>
+          </div>
+          <div id="explanation-answer" class="explanation-placeholder">생성된 문제의 정답과 해설이 표시됩니다.</div>
+        </article>
+
+        <button type="button" class="scroll-expand-button paired-scroll-expand-button" data-scroll-toggle="explanation-question explanation-answer" aria-expanded="false" aria-label="문제와 정답 및 해설 전체 보기" title="전체 보기"></button>
+
+        <article class="panel explanation-panel notebook-qa-prompt-panel">
+          <div class="panel-heading">
+            <h2>SNOW에게 질문</h2>
+          </div>
+          <form id="notebook-qa-form" class="notebook-qa-form notebook-qa-form-inline">
+            <label class="select-wrap">
+              <span>질문 입력</span>
+              <input id="notebook-qa-input" type="text" placeholder="Notebook 내용에 대해 질문하세요">
+            </label>
+            <button type="submit" id="notebook-qa-submit" class="primary-button qa-submit-button" aria-label="질문 보내기" title="질문 보내기">&#8593;</button>
+          </form>
+        </article>
+      </section>
+    </main>
+  </div>
 
   <script src="./src/explanation.js" defer></script>
 </body>
 </html>
+
+
+
+
+
+

@@ -16,6 +16,7 @@
       </span>
     </div>
     <div class="nav-links">
+      <a href="./explanation.html">Q&A</a>
       <a id="login-link" href="./login.html">Login</a>
       <button type="button" id="logout-button" class="nav-button" hidden>Logout</button>
     </div>
@@ -33,44 +34,6 @@
 
         <div id="left-menu-drawer" class="left-menu-drawer" aria-hidden="true">
           <div class="left-history-slot">
-            <aside class="panel history-panel">
-              <div class="panel-heading">
-                <p class="panel-kicker">History</p>
-                <h2>&#50836;&#52397; &#44592;&#47197;</h2>
-              </div>
-              <p class="history-caption">&#51060;&#51204;&#50640; &#49892;&#54665;&#54620; &#50836;&#52397;&#51012; &#48736;&#47476;&#44172; &#54869;&#51064;&#54624; &#49688; &#51080;&#49845;&#45768;&#45796;.</p>
-              <div id="history-list" class="history-list">
-                <p class="history-empty">&#50500;&#51649; &#51200;&#51109;&#46108; &#50836;&#52397; &#44592;&#47197;&#51060; &#50630;&#49845;&#45768;&#45796;.</p>
-              </div>
-            </aside>
-
-            <section class="panel document-upload-panel uploaded-files-panel">
-              <div class="panel-heading">
-                <p class="panel-kicker">Document</p>
-                <h2>&#47928;&#49436; &#50629;&#47196;&#46300;</h2>
-              </div>
-              <div class="upload-status-group">
-                <label class="upload-dropzone compact-upload inline-uploader" for="document-upload">
-                  <input id="document-upload" type="file" accept=".pdf,.ppt,.pptx" multiple>
-                  <strong>&#54028;&#51068;&#51012; &#46300;&#47000;&#44536;&#54644;&#49436; &#50629;&#47196;&#46300;&#54616;&#49464;&#50836;.</strong>
-                  <span id="selected-file-name">PDF, PPT, PPTX &#50668;&#47084; &#44060; &#50629;&#47196;&#46300;</span>
-                </label>
-                <label class="clip-upload-button" for="document-upload" aria-label="Choose file">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M21.4 11.6 12.1 20.9a6 6 0 0 1-8.5-8.5l9.8-9.8a4 4 0 0 1 5.7 5.7l-9.8 9.8a2 2 0 1 1-2.8-2.8l9.3-9.3"></path>
-                  </svg>
-                </label>
-                <label class="add-document-button" for="document-upload">&#47928;&#49436; &#52628;&#44032;</label>
-              </div>
-              <div class="uploaded-files-header merged-uploaded-files-header">
-                <p class="panel-kicker">Uploaded Files</p>
-                <h3>&#47928;&#49436; &#47785;&#47197;</h3>
-              </div>
-              <div id="uploaded-files-list" class="uploaded-files-list">
-                <p class="uploaded-file-empty">&#50500;&#51649; &#50629;&#47196;&#46300;&#46108; &#47928;&#49436;&#44032; &#50630;&#49845;&#45768;&#45796;.</p>
-              </div>
-            </section>
-
             <section class="panel notebook-panel">
               <div class="panel-heading">
                 <h2>Notebook</h2>
@@ -85,8 +48,57 @@
               </label>
               <button type="button" id="notebook-load" class="ghost-button notebook-load">&#48520;&#47084;&#50724;&#44592;</button>
               <button type="button" id="notebook-delete" class="ghost-button notebook-delete">&#49325;&#51228;</button>
-              <p id="notebook-status" class="notebook-status" aria-live="polite">Notebook can be saved or loaded here.</p>
+              <p id="notebook-status" class="notebook-status" aria-live="polite">Notebook을 저장하거나 불러올 수 있습니다.</p>
             </section>
+
+            <section class="panel document-upload-panel uploaded-files-panel">
+              <div class="panel-heading">
+                <h2 class="document-upload-title">
+                  <span>&#47928;&#49436; &#50629;&#47196;&#46300;</span>
+                  <label class="clip-upload-button title-clip-upload-button" for="document-upload" aria-label="Choose file">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M21.4 11.6 12.1 20.9a6 6 0 0 1-8.5-8.5l9.8-9.8a4 4 0 0 1 5.7 5.7l-9.8 9.8a2 2 0 1 1-2.8-2.8l9.3-9.3"></path>
+                    </svg>
+                  </label>
+                </h2>
+              </div>
+              <div class="upload-status-group">
+                <label class="upload-dropzone compact-upload inline-uploader" for="document-upload">
+                  <input id="document-upload" type="file" accept=".pdf,.ppt,.pptx" multiple>
+                  <strong>&#54028;&#51068;&#51012; &#46300;&#47000;&#44536;&#54644;&#49436; &#50629;&#47196;&#46300;&#54616;&#49464;&#50836;.</strong>
+                  <span id="selected-file-name">PDF, PPT, PPTX &#50668;&#47084; &#44060; &#50629;&#47196;&#46300;</span>
+                </label>
+                <label class="add-document-button" for="document-upload">&#47928;&#49436; &#52628;&#44032;</label>
+              </div>
+              <div class="uploaded-files-header merged-uploaded-files-header">
+                <h3>&#47928;&#49436; &#47785;&#47197;</h3>
+              </div>
+              <div id="uploaded-files-list" class="uploaded-files-list">
+                <p class="uploaded-file-empty">&#50500;&#51649; &#50629;&#47196;&#46300;&#46108; &#47928;&#49436;&#44032; &#50630;&#49845;&#45768;&#45796;.</p>
+              </div>
+            </section>
+
+            <aside class="panel history-panel">
+              <div class="panel-heading">
+                <h2>&#50836;&#52397; &#44592;&#47197;</h2>
+              </div>
+              <p class="history-caption">&#51060;&#51204;&#50640; &#49892;&#54665;&#54620; &#50836;&#52397;&#51012; &#48736;&#47476;&#44172; &#54869;&#51064;&#54624; &#49688; &#51080;&#49845;&#45768;&#45796;.</p>
+              <div id="history-list" class="history-list">
+                <p class="history-empty">&#50500;&#51649; &#51200;&#51109;&#46108; &#50836;&#52397; &#44592;&#47197;&#51060; &#50630;&#49845;&#45768;&#45796;.</p>
+              </div>
+            </aside>
+            <section class="panel quiz-jobs-panel">
+              <div class="panel-heading panel-row">
+                <div>
+                  <h2>퀴즈 생성 기록</h2>
+                </div>
+                <button type="button" id="quiz-jobs-refresh" class="icon-button refresh-icon-button" aria-label="퀴즈 생성 기록 새로고침" title="새로고침">&#8635;</button>
+              </div>
+              <div id="quiz-jobs-list" class="quiz-jobs-list">
+                <p class="history-empty">Notebook을 선택하면 퀴즈 생성 기록이 표시됩니다.</p>
+              </div>
+            </section>
+            <button type="button" id="withdraw-button" class="withdraw-button" hidden>회원 탈퇴</button>
           </div>
         </div>
       </div>
@@ -116,30 +128,23 @@
             <option value="단답형">&#45800;&#45813;&#54805;</option>
             <option value="서술형">&#49436;&#49696;&#54805;</option>
           </select>
-          <select id="difficulty">
-            <option value="easy">&#49772;&#50880;</option>
-            <option value="medium" selected>&#48372;&#53685;</option>
-            <option value="hard">&#50612;&#47140;&#50880;</option>
-          </select>
           <input type="hidden" id="question-count" value="5">
         </div>
 
         <section class="panel workspace-panel">
-          <div class="panel-heading panel-row">
+          <div class="panel-heading panel-row prompt-heading">
             <div>
-              <p class="panel-kicker">Prompt</p>
-              <h2>&#50836;&#52397; &#51077;&#47141;</h2>
+              <h2>문제 생성 요청</h2>
             </div>
           </div>
           <div class="field-grid">
             <label class="textarea-wrap field-span-2">
-              <span>&#52636;&#51228; &#48276;&#50948; &#46608;&#45716; &#50836;&#52397;</span>
               <textarea id="prompt-input" placeholder="예: 운영체제 교착상태 개념 위주로 객관식 5문항과 서술형 2문항을 생성해줘."></textarea>
             </label>
           </div>
 
           <div class="controls">
-            <button type="button" id="sample-button" class="ghost-button">&#49368;&#54540; &#50836;&#52397;</button>
+            <button type="button" id="sample-button" class="ghost-button">예시 질문 생성</button>
             <button type="button" id="quiz-settings-toggle" class="ghost-button" aria-haspopup="dialog" aria-controls="quiz-settings-panel">
               &#53300;&#51592; &#49373;&#49457;
             </button>
@@ -148,19 +153,14 @@
             <button type="button" id="reset-button" class="ghost-button">&#52488;&#44592;&#54868;</button>
           </div>
 
-          <div class="workspace-result-header panel-heading panel-row">
+          <div class="workspace-result-header panel-heading panel-row result-heading">
             <div>
-              <p class="panel-kicker">Output</p>
-              <h2>&#44208;&#44284;</h2>
+              <h2>&#49373;&#49457;&#46108; &#47928;&#51228;</h2>
             </div>
-            <button type="button" id="copy-button" class="ghost-button">&#48373;&#49324;</button>
           </div>
-          <div id="output-window" class="output-window" aria-live="polite">&#50500;&#51649; &#49373;&#49457;&#46108; &#44208;&#44284;&#44032; &#50630;&#49845;&#45768;&#45796;. &#50948; &#51077;&#47141;&#52285;&#50640; &#50836;&#52397;&#51012; &#51089;&#49457;&#54616;&#44256; &#49892;&#54665;&#54644;&#48372;&#49464;&#50836;.</div>
           <div id="result-cards" class="result-cards">
-            <article class="result-card">
-              <p class="result-label">Preview</p>
-              <h3>&#49373;&#49457;&#46108; &#47928;&#51228;&#50752; &#50836;&#50557; &#44208;&#44284;&#44032; &#51060; &#50689;&#50669;&#50640; &#54364;&#49884;&#46121;&#45768;&#45796;.</h3>
-              <p>&#49892;&#51228; &#50672;&#44208; &#51204;&#50640;&#45716; &#50696;&#49884; &#44208;&#44284;&#44032; &#45208;&#53440;&#45208;&#44256;, &#51060;&#54980; &#51221;&#45813;&#44284; &#54644;&#49444; &#54056;&#45328;&#51012; &#48537;&#51068; &#49688; &#51080;&#49845;&#45768;&#45796;.</p>
+            <article class="result-card result-card-empty">
+              <p>&#49373;&#49457;&#46108; &#53300;&#51592;&#44032; &#50630;&#49845;&#45768;&#45796;.</p>
             </article>
           </div>
         </section>
@@ -168,6 +168,7 @@
     </div>
 
   </div>
+
 
   <div id="quiz-settings-modal" class="settings-modal" hidden>
     <div class="settings-backdrop" data-close-settings></div>
@@ -190,15 +191,6 @@
       </div>
 
       <div class="setting-group">
-        <p>&#45212;&#51060;&#46020;</p>
-        <div class="setting-options" role="group" aria-label="Difficulty">
-          <button type="button" class="setting-button" data-setting-target="difficulty" data-setting-value="easy">&#49772;&#50880;</button>
-          <button type="button" class="setting-button is-active" data-setting-target="difficulty" data-setting-value="medium">&#48372;&#53685;</button>
-          <button type="button" class="setting-button" data-setting-target="difficulty" data-setting-value="hard">&#50612;&#47140;&#50880;</button>
-        </div>
-      </div>
-
-      <div class="setting-group">
         <p>&#47928;&#51228; &#49688;</p>
         <div class="setting-options" role="group" aria-label="Question count">
           <button type="button" class="setting-button" data-setting-target="question-count" data-setting-value="3">3&#47928;&#54637;</button>
@@ -212,7 +204,7 @@
       </div>
 
       <div class="settings-actions">
-        <button type="button" id="quiz-settings-confirm" class="primary-button settings-confirm">&#54869;&#51064;</button>
+        <button type="button" id="quiz-settings-confirm" class="primary-button settings-confirm">&#51201;&#50857;</button>
       </div>
     </section>
   </div>

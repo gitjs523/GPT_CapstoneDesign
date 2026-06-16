@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SNOW workspace for document-based question generation.">
+  <title>SNOW Workspace</title>
+  <link rel="stylesheet" href="./src/styles/main.css">
+</head>
+<body>
+  <a class="top-link" href="./login.html">Login</a>
+
+  <div class="screen-layout">
+    <aside class="screen-side screen-side-left">
+      <div class="left-layout">
+        <div class="left-spacer" aria-hidden="true"></div>
+        <div class="left-history-slot">
+          <aside class="panel history-panel">
+            <div class="panel-heading">
+              <p class="panel-kicker">History</p>
+              <h2>요청 기록</h2>
+            </div>
+            <p class="history-caption">이전에 실행했던 요청을 빠르게 다시 확인할 수 있습니다.</p>
+            <div id="history-list" class="history-list">
+              <p class="history-empty">아직 저장된 요청 기록이 없습니다.</p>
+            </div>
+          </aside>
+
+          <section class="panel document-upload-panel">
+            <div class="panel-heading">
+              <p class="panel-kicker">Document</p>
+              <h2>문서 업로드</h2>
+            </div>
+            <div class="upload-status-group">
+              <label class="upload-dropzone compact-upload inline-uploader" for="document-upload">
+                <input id="document-upload" type="file" accept=".pdf,.ppt,.pptx" multiple>
+                <strong>문서 업로드</strong>
+                <span id="selected-file-name">PDF, PPT, PPTX 여러 개 업로드</span>
+              </label>
+              <div id="upload-status" class="upload-status idle" aria-live="polite">
+                <span class="upload-status-icon"></span>
+                <span id="upload-status-text">대기 중</span>
+              </div>
+              <label class="add-document-button" for="document-upload">문서 업로드</label>
+            </div>
+          </section>
+
+          <section class="panel uploaded-files-panel">
+            <div class="uploaded-files-header">
+              <p class="panel-kicker">Uploaded Files</p>
+              <h3>업로드된 문서</h3>
+            </div>
+            <div id="uploaded-files-list" class="uploaded-files-list">
+              <p class="uploaded-file-empty">아직 업로드된 문서가 없습니다.</p>
+            </div>
+          </section>
+        </div>
+        <div class="left-spacer" aria-hidden="true"></div>
+      </div>
+    </aside>
+
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="brand-accent brand-s">S</span>mart
+            <span class="brand-accent brand-n">N</span>ote
+            <span class="brand-accent brand-o">O</span>rganizer for
+            <span class="brand-accent brand-w">W</span>eb
+          </p>
+          <h1>SNOW</h1>
+        </div>
+        <div class="hero-subtitle-row">
+          <p id="hero-status-text" class="hero-subtitle hero-title" contenteditable="true" spellcheck="false" dir="ltr" aria-label="프로젝트 제목"></p>
+          <button type="button" id="hero-edit-title" class="hero-edit-button" aria-label="프로젝트 제목 수정">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 20h4l10-10a2.5 2.5 0 0 0-4-4L4 16v4z"></path>
+              <path d="M13.5 6.5l4 4"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <div id="job-status-message" hidden></div>
+        <div class="hidden-controls" hidden>
+          <select id="question-type">
+            <option value="객관식" selected>객관식</option>
+            <option value="단답형">단답형</option>
+            <option value="서술형">서술형</option>
+          </select>
+          <select id="difficulty">
+            <option value="easy">쉬움</option>
+            <option value="medium" selected>보통</option>
+            <option value="hard">어려움</option>
+          </select>
+          <select id="question-count">
+            <option value="3">3문항</option>
+            <option value="5" selected>5문항</option>
+            <option value="10">10문항</option>
+          </select>
+        </div>
+
+        <section class="panel output-panel">
+          <div class="panel-heading panel-row">
+            <div>
+              <p class="panel-kicker">Output</p>
+              <h2>텍스트 출력</h2>
+            </div>
+            <button type="button" id="copy-button" class="ghost-button">출력 복사</button>
+          </div>
+          <div id="output-window" class="output-window" aria-live="polite">
+            아직 생성된 결과가 없습니다. 아래 입력창에서 요청을 작성한 뒤 실행해보세요.
+          </div>
+          <div id="result-cards" class="result-cards">
+            <article class="result-card">
+              <p class="result-label">미리보기</p>
+              <h3>생성된 문제와 요약 결과가 이 영역에 표시됩니다.</h3>
+              <p>실제 연결 전에는 더미 결과가 나타나고, 이후 정답과 해설 패널을 붙일 수 있습니다.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel input-panel">
+          <div class="panel-heading panel-row">
+            <div>
+              <p class="panel-kicker">Prompt</p>
+              <h2>텍스트 입력</h2>
+            </div>
+          </div>
+          <div class="field-grid">
+            <label class="textarea-wrap field-span-2">
+              <span>출제 범위 또는 요청</span>
+              <textarea id="prompt-input" placeholder="예: 운영체제 핵심 개념 위주로 객관식 5문항과 서술형 2문항을 생성해줘."></textarea>
+            </label>
+
+          </div>
+
+          <div class="controls">
+            <button type="button" id="sample-button" class="ghost-button">샘플 요청 넣기</button>
+            <button type="button" id="generate-button" class="primary-button">실행하기</button>
+            <button type="button" id="reset-button" class="ghost-button">초기화</button>
+          </div>
+
+        </section>
+      </main>
+    </div>
+
+    <aside class="screen-side screen-side-right">
+      <div class="right-layout">
+        <div class="right-spacer" aria-hidden="true"></div>
+        <div class="right-settings-slot">
+          <button type="button" id="quiz-settings-toggle" class="quiz-toggle" aria-haspopup="dialog" aria-controls="quiz-settings-panel">
+            퀴즈
+          </button>
+          <a class="explanation-link" href="./explanation.html">해설</a>
+        </div>
+        <section class="panel notebook-panel">
+          <div class="panel-heading">
+            <p class="panel-kicker">Notebook</p>
+          </div>
+          <div class="notebook-actions">
+            <button type="button" id="notebook-new" class="ghost-button">새 Notebook</button>
+            <button type="button" id="notebook-save" class="primary-button">저장</button>
+          </div>
+          <label class="select-wrap notebook-select-wrap">
+            <span>저장된 Notebook</span>
+            <select id="notebook-select"></select>
+          </label>
+          <button type="button" id="notebook-load" class="ghost-button notebook-load">불러오기</button>
+          <button type="button" id="notebook-delete" class="ghost-button notebook-delete">삭제</button>
+          <p id="notebook-status" class="notebook-status" aria-live="polite">현재 작업공간을 저장하거나 불러올 수 있습니다.</p>
+        </section>
+        <div class="right-spacer" aria-hidden="true"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="quiz-settings-modal" class="settings-modal" hidden>
+    <div class="settings-backdrop" data-close-settings></div>
+    <section id="quiz-settings-panel" class="panel settings-panel settings-dialog" role="dialog" aria-modal="true" aria-labelledby="quiz-settings-title">
+      <div class="panel-heading panel-row">
+        <div>
+          <p class="panel-kicker">Settings</p>
+          <h2 id="quiz-settings-title">생성 설정</h2>
+        </div>
+        <button type="button" class="settings-close" data-close-settings aria-label="닫기">×</button>
+      </div>
+
+      <div class="setting-group">
+        <p>문제 유형</p>
+        <div class="setting-options" role="group" aria-label="문제 유형">
+          <button type="button" class="setting-button is-active" data-setting-target="question-type" data-setting-value="객관식">객관식</button>
+          <button type="button" class="setting-button" data-setting-target="question-type" data-setting-value="단답형">단답형</button>
+          <button type="button" class="setting-button" data-setting-target="question-type" data-setting-value="서술형">서술형</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <p>난이도</p>
+        <div class="setting-options" role="group" aria-label="난이도">
+          <button type="button" class="setting-button" data-setting-target="difficulty" data-setting-value="easy">쉬움</button>
+          <button type="button" class="setting-button is-active" data-setting-target="difficulty" data-setting-value="medium">보통</button>
+          <button type="button" class="setting-button" data-setting-target="difficulty" data-setting-value="hard">어려움</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <p>문제 수</p>
+        <div class="setting-options" role="group" aria-label="문제 수">
+          <button type="button" class="setting-button" data-setting-target="question-count" data-setting-value="3">3문항</button>
+          <button type="button" class="setting-button is-active" data-setting-target="question-count" data-setting-value="5">5문항</button>
+          <button type="button" class="setting-button" data-setting-target="question-count" data-setting-value="10">10문항</button>
+        </div>
+      </div>
+
+      <div class="settings-actions">
+        <button type="button" id="quiz-settings-confirm" class="primary-button settings-confirm">확인</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="./src/main.js" defer></script>
+</body>
+</html>
