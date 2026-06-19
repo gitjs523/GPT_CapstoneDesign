@@ -94,6 +94,11 @@
             </label>
             <button type="submit" id="notebook-qa-submit" class="primary-button qa-submit-button" aria-label="질문 보내기" title="질문 보내기">&#8593;</button>
           </form>
+          <div id="notebook-qa-status" class="notebook-qa-status" role="status" aria-live="polite" hidden>
+            <span class="notebook-qa-status-mark" aria-hidden="true">SNOW</span>
+            <span class="notebook-qa-status-spinner" aria-hidden="true"></span>
+            <span id="notebook-qa-status-text">답변을 생성하고 있습니다.</span>
+          </div>
         </article>
       </section>
     </main>

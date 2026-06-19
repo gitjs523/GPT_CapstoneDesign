@@ -2008,6 +2008,67 @@ body.left-menu-open .notebook-qa-prompt-panel {
   transform: translateY(-1px) scale(0.95);
 }
 
+.notebook-qa-prompt-panel .qa-submit-button.is-loading {
+  color: transparent;
+  pointer-events: none;
+  position: relative;
+}
+
+.notebook-qa-prompt-panel .qa-submit-button.is-loading::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: qa-spin 0.8s linear infinite;
+}
+
+.notebook-qa-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 28px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notebook-qa-status[hidden] {
+  display: none;
+}
+
+.notebook-qa-status-mark {
+  display: inline-grid;
+  place-items: center;
+  height: 22px;
+  min-width: 48px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #000000;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.notebook-qa-status-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-top-color: #000000;
+  border-radius: 50%;
+  animation: qa-spin 0.8s linear infinite;
+}
+
+@keyframes qa-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .notebook-qa-prompt-panel .select-wrap span {
   display: none;
 }

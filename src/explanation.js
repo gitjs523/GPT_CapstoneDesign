@@ -6,6 +6,8 @@ const answerPanel = document.querySelector("#explanation-answer");
 const notebookQaForm = document.querySelector("#notebook-qa-form");
 const notebookQaInput = document.querySelector("#notebook-qa-input");
 const notebookQaSubmit = document.querySelector("#notebook-qa-submit");
+const notebookQaStatus = document.querySelector("#notebook-qa-status");
+const notebookQaStatusText = document.querySelector("#notebook-qa-status-text");
 const notebookQaHistory = document.querySelector("#notebook-qa-history");
 const loginLink = document.querySelector("#login-link");
 const logoutButton = document.querySelector("#logout-button");
@@ -28,6 +30,23 @@ let refreshTimerId = null;
 let activeQaPollToken = 0;
 
 localStorage.removeItem("snow.accessToken");
+
+function setNotebookQaLoading(isLoading, message = "답변을 생성하고 있습니다.") {
+  if (notebookQaStatus) {
+    notebookQaStatus.hidden = !isLoading;
+    notebookQaStatus.classList.toggle("is-loading", isLoading);
+  }
+
+  if (notebookQaStatusText) {
+    notebookQaStatusText.textContent = message;
+  }
+
+  if (notebookQaSubmit) {
+    notebookQaSubmit.classList.toggle("is-loading", isLoading);
+    notebookQaSubmit.setAttribute("aria-busy", String(isLoading));
+    notebookQaSubmit.title = isLoading ? "답변 생성 중" : "질문 보내기";
+  }
+}
 
 function setLeftMenuOpen(isOpen) {
   if (!leftMenuToggle || !leftMenuDrawer) {
@@ -464,6 +483,7 @@ async function pollNotebookQaJob(notebookId, qaJobId, question, pollToken) {
     }
 
     if (notebookQaHistory && isNotebookQaJobPending(job)) {
+      setNotebookQaLoading(true, `SNOW가 답변을 생성하고 있습니다. (${job.status})`);
       notebookQaHistory.textContent = [
         `Q. ${question}`,
         "",
@@ -833,6 +853,7 @@ notebookQaForm?.addEventListener("submit", async (event) => {
   }
 
   notebookQaSubmit.disabled = true;
+  setNotebookQaLoading(true, "SNOW에게 질문을 보내는 중입니다.");
   notebookQaHistory.textContent = "질문을 보내는 중입니다.";
 
   try {
@@ -843,6 +864,7 @@ notebookQaForm?.addEventListener("submit", async (event) => {
     notebookQaInput.value = "";
 
     if (initialJob?.qaJobId && isNotebookQaJobPending(initialJob)) {
+      setNotebookQaLoading(true, `SNOW가 답변을 생성하고 있습니다. (${initialJob.status})`);
       notebookQaHistory.textContent = [
         `Q. ${question}`,
         "",
@@ -867,6 +889,7 @@ notebookQaForm?.addEventListener("submit", async (event) => {
     }
     notebookQaHistory.textContent = error.message || "Notebook \uC9C8\uBB38\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.";
   } finally {
+    setNotebookQaLoading(false);
     notebookQaSubmit.disabled = hasDocumentAnalysisInProgress();
   }
 });
